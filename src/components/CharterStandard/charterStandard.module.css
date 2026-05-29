@@ -1,0 +1,79 @@
+.section {
+  background: var(--color-text);
+  color: white;
+  padding: var(--space-10) 0;
+}
+
+.layout {
+  display: grid;
+  gap: var(--space-10);
+  grid-template-columns: 0.9fr 1.1fr;
+}
+
+.eyebrow {
+  color: var(--color-sun);
+  font-size: 1.1rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  margin-bottom: var(--space-4);
+  text-transform: uppercase;
+}
+
+.intro h2 {
+  font-size: clamp(3.2rem, 4vw, 4.8rem);
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 1.1;
+  margin-bottom: var(--space-5);
+  max-width: 470px;
+}
+
+.intro > p:not(.eyebrow) {
+  color: rgba(255, 255, 255, 0.7);
+  line-height: 1.8;
+  margin-bottom: var(--space-7);
+  max-width: 470px;
+}
+
+.standards {
+  border-top: 1px solid var(--color-border-dark);
+}
+
+.standard {
+  border-bottom: 1px solid var(--color-border-dark);
+  display: grid;
+  gap: var(--space-6);
+  grid-template-columns: 58px 1fr;
+  padding: var(--space-6) 0;
+}
+
+.number {
+  color: var(--color-sky);
+  font-size: 1.1rem;
+  font-weight: 800;
+  letter-spacing: 0.15em;
+  padding-top: 7px;
+}
+
+.standard h3 {
+  font-size: 2.4rem;
+  font-weight: 800;
+  margin-bottom: var(--space-2);
+}
+
+.standard div p {
+  color: rgba(255, 255, 255, 0.68);
+  line-height: 1.7;
+}
+
+@media (max-width: 900px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .section {
+    padding: var(--space-9) 0;
+  }
+}

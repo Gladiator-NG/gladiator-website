@@ -1,0 +1,63 @@
+'use client';
+
+import Image from 'next/image';
+import { SmoothLink } from '@/components/ui';
+
+import styles from './footer.module.css';
+
+function Footer() {
+  const whatsappUrl = process.env.NEXT_PUBLIC_SUPPORT_WHATSAPP_URL;
+  const supportEmail = process.env.NEXT_PUBLIC_SUPPORT_EMAIL;
+
+  return (
+    <footer className={styles.footer} id="contact">
+      <div className={`wrap ${styles.layout}`}>
+        <div className={styles.brand}>
+          <Image
+            alt="Gladiator"
+            className={styles.wordmark}
+            height={80}
+            src="/brand/gladiator-wordmark-design.png"
+            width={580}
+          />
+          <p>Private charters and secluded waterfront stays in Lagos.</p>
+        </div>
+
+        <nav aria-label="Footer">
+          <SmoothLink href="#booking-lookup">
+            Look up booking
+          </SmoothLink>
+          <SmoothLink href="#contact">
+            Contact us
+          </SmoothLink>
+          <SmoothLink href="#plan-charter">
+            Plan a charter
+          </SmoothLink>
+        </nav>
+
+        <div className={styles.contact}>
+          <p>Booking support</p>
+          <div className={styles.contactLinks}>
+            {whatsappUrl && (
+              <a href={whatsappUrl} rel="noreferrer" target="_blank">
+                WhatsApp support
+              </a>
+            )}
+            {supportEmail && (
+              <a href={`mailto:${supportEmail}`}>{supportEmail}</a>
+            )}
+            {!whatsappUrl && !supportEmail && (
+              <span>Support contact will be available soon.</span>
+            )}
+          </div>
+        </div>
+      </div>
+      <div className={`wrap ${styles.bottom}`}>
+        <p>&copy; {new Date().getFullYear()} Gladiator. All rights reserved.</p>
+        <p>Luxury on water, curated in Lagos.</p>
+      </div>
+    </footer>
+  );
+}
+
+export default Footer;

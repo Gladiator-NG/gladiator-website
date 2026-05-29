@@ -1,0 +1,120 @@
+.button {
+  align-items: center;
+  border: 0;
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  display: inline-flex;
+  font-weight: 800;
+  gap: 0.8rem;
+  isolation: isolate;
+  justify-content: center;
+  line-height: 1;
+  overflow: hidden;
+  position: relative;
+  text-align: center;
+  transition:
+    background var(--duration-base) var(--ease-out),
+    border-color var(--duration-base) var(--ease-out),
+    color var(--duration-base) var(--ease-out),
+    opacity var(--duration-base) var(--ease-out);
+}
+
+.button::after {
+  background: var(--gradient-sunset);
+  content: '';
+  inset: 0;
+  position: absolute;
+  transform: translateX(-101%);
+  transition: transform 0.14s var(--ease-snap);
+  z-index: -1;
+}
+
+.button:hover::after {
+  transform: translateX(0);
+}
+
+.button:disabled,
+.button[aria-disabled='true'] {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.sm {
+  min-height: 3.8rem;
+  padding: 0 1.4rem;
+  font-size: 1.2rem;
+}
+
+.md {
+  min-height: 4.8rem;
+  padding: 0 2.2rem;
+  font-size: 1.3rem;
+}
+
+.lg {
+  min-height: 5.4rem;
+  padding: 0 2.9rem;
+  font-size: 1.4rem;
+}
+
+.primary,
+.dark {
+  background: var(--color-text);
+  color: var(--color-white);
+}
+
+.secondary {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.42);
+  color: var(--color-white);
+}
+
+.secondary::after,
+.ghost::after,
+.icon::after {
+  display: none;
+}
+
+.secondary:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.72);
+}
+
+.ghost {
+  background: transparent;
+  border: 1px solid var(--color-border-soft);
+  color: inherit;
+}
+
+.ghost:hover {
+  border-color: var(--color-ocean-blue);
+}
+
+.icon {
+  background: rgba(30, 30, 30, 0.46);
+  border: 1px solid rgba(255, 255, 255, 0.46);
+  border-radius: 50%;
+  color: var(--color-white);
+  height: 3.8rem;
+  min-height: 0;
+  padding: 0;
+  width: 3.8rem;
+}
+
+.icon:hover {
+  background: rgba(30, 30, 30, 0.76);
+  border-color: rgba(255, 255, 255, 0.72);
+}
+
+.arrow {
+  border-right: 0.2rem solid currentColor;
+  border-top: 0.2rem solid currentColor;
+  display: block;
+  height: 0.9rem;
+  transform: rotate(45deg);
+  width: 0.9rem;
+}
+
+.previous {
+  transform: rotate(-135deg);
+}

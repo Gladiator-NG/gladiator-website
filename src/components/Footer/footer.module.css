@@ -1,0 +1,85 @@
+.footer {
+  background: var(--color-text);
+  color: white;
+  padding: var(--space-9) 0 var(--space-6);
+}
+
+.layout {
+  border-bottom: 1px solid var(--color-border-dark);
+  display: grid;
+  gap: var(--space-8);
+  grid-template-columns: 1.4fr 0.7fr 0.8fr;
+  padding-bottom: var(--space-8);
+}
+
+.wordmark {
+  height: auto;
+  max-width: 225px;
+  object-fit: contain;
+  width: 100%;
+}
+
+.brand p {
+  color: rgba(255, 255, 255, 0.62);
+  line-height: 1.7;
+  margin-top: var(--space-4);
+  max-width: 300px;
+}
+
+.layout nav {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.layout nav a {
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.layout nav a:hover {
+  color: white;
+}
+
+.contact p {
+  color: rgba(255, 255, 255, 0.56);
+  font-size: 1.1rem;
+  font-weight: 800;
+  letter-spacing: 0.17em;
+  margin-bottom: var(--space-4);
+  text-transform: uppercase;
+}
+
+.contact a {
+  color: white;
+  font-size: 1.8rem;
+  font-weight: 800;
+}
+
+.contactLinks {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.contactLinks span {
+  color: rgba(255, 255, 255, 0.62);
+  line-height: 1.7;
+}
+
+.bottom {
+  color: rgba(255, 255, 255, 0.46);
+  display: flex;
+  font-size: 1.2rem;
+  justify-content: space-between;
+  padding-top: var(--space-6);
+}
+
+@media (max-width: 800px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+
+  .bottom {
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+}

@@ -1,0 +1,131 @@
+.header {
+  position: absolute;
+  inset: 0 0 auto;
+  z-index: 10;
+  padding: 2.4rem 0;
+  color: var(--color-white);
+}
+
+.inner {
+  display: flex;
+  align-items: center;
+  gap: 4.2rem;
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 1.2rem;
+  margin-right: auto;
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.mark {
+  width: 4rem;
+  height: 4rem;
+  object-fit: contain;
+}
+
+.desktopNav {
+  display: flex;
+  align-items: center;
+  gap: 3.4rem;
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 1.3rem;
+  font-weight: 600;
+}
+
+.desktopNav a {
+  transition: color var(--duration-base) var(--ease-out);
+}
+
+.desktopNav a:hover {
+  color: var(--color-white);
+}
+
+.bookButton {
+  border-radius: 999rem;
+}
+
+.mobileMenu {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .desktopNav,
+  .bookButton {
+    display: none;
+  }
+
+  .mobileMenu {
+    display: block;
+    position: relative;
+  }
+
+  .mobileMenu summary {
+    width: 4.6rem;
+    height: 4.6rem;
+    display: grid;
+    align-content: center;
+    gap: 0.7rem;
+    padding: 0 1.2rem;
+    border: 1px solid var(--color-border-dark);
+    border-radius: 50%;
+    list-style: none;
+    cursor: pointer;
+  }
+
+  .mobileMenu summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .mobileMenu summary span {
+    height: 1px;
+    background: var(--color-paper);
+  }
+
+  .mobileMenu nav {
+    position: absolute;
+    top: 5.8rem;
+    right: 0;
+    min-width: 22rem;
+    padding: 1.4rem;
+    display: grid;
+    gap: 0.4rem;
+    color: var(--color-ink);
+    border-radius: var(--radius-md);
+    background: var(--color-paper);
+    border: 1px solid var(--color-border-soft);
+  }
+
+  .mobileMenu nav a {
+    padding: 1.1rem 1.3rem;
+    border-radius: var(--radius-sm);
+  }
+
+  .mobileMenu nav a:last-child {
+    margin-top: 0.6rem;
+    color: var(--color-white);
+    background: var(--gradient-ocean);
+  }
+}
+
+@media (max-width: 520px) {
+  .header {
+    padding: 1.7rem 0;
+  }
+
+  .brand {
+    gap: 0.8rem;
+    font-size: 1.3rem;
+    letter-spacing: 0.18em;
+  }
+
+  .mark {
+    width: 3.6rem;
+    height: 3.6rem;
+  }
+}

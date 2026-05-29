@@ -1,0 +1,79 @@
+@keyframes cardBorderFlow {
+  to {
+    background-position: 300% 50%;
+  }
+}
+
+.card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-soft);
+  border-radius: var(--border-radius-lg);
+  position: relative;
+}
+
+.glow {
+  background: var(--color-paper);
+  overflow: visible;
+  transition: border-color 120ms var(--ease-out);
+}
+
+/*
+  Brighter animated border treatment. Keeping this here because the user liked
+  the idea but wants it paused while we try a quieter card direction.
+
+.glow::before {
+  animation: cardBorderFlow 1.7s linear infinite;
+  background: linear-gradient(
+    115deg,
+    var(--color-sun-yellow) 0%,
+    var(--color-sunset) 16%,
+    var(--color-ocean-blue) 34%,
+    var(--color-sky-blue) 52%,
+    var(--color-sun-yellow) 68%,
+    var(--color-sunset) 84%,
+    var(--color-ocean-blue) 100%
+  );
+  background-size: 300% 100%;
+  border-radius: inherit;
+  content: '';
+  inset: -0.1rem;
+  opacity: 0;
+  pointer-events: none;
+  position: absolute;
+  transition: opacity var(--duration-base) var(--ease-out);
+}
+
+.glow::after {
+  background:
+    radial-gradient(
+      circle at 20% 0%,
+      rgba(253, 202, 15, 0.18),
+      transparent 34%
+    ),
+    radial-gradient(
+      circle at 100% 20%,
+      rgba(47, 140, 202, 0.2),
+      transparent 38%
+    ),
+    var(--color-paper);
+  border-radius: calc(var(--border-radius-lg) - 0.2rem);
+  content: '';
+  inset: 0.1rem;
+  pointer-events: none;
+  position: absolute;
+}
+*/
+
+.glow:hover,
+.selected {
+  background: var(--color-paper);
+  border-color: rgba(47, 140, 202, 0.42);
+}
+
+/*
+.glow:hover::before,
+.glow:focus-within::before,
+.selected::before {
+  opacity: 1;
+}
+*/
