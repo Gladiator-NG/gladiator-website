@@ -1,0 +1,19 @@
+{
+  "name": "Gladiator",
+  "short_name": "Gladiator",
+  "icons": [
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    },
+    {
+      "src": "/gladiator_icon.png",
+      "sizes": "181x119",
+      "type": "image/png"
+    }
+  ],
+  "theme_color": "#2f8cca",
+  "background_color": "#eef2f8",
+  "display": "standalone"
+}
