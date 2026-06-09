@@ -10,7 +10,7 @@ import { useSmoothScroll } from '@/hooks/useSmoothScroll';
 import { cn } from './utils';
 import styles from './button.module.css';
 
-type ButtonVariant = 'primary' | 'secondary' | 'dark' | 'ghost' | 'icon';
+type ButtonVariant = 'primary' | 'secondary' | 'dark' | 'ghost' | 'icon' | 'hero';
 type ButtonSize = 'sm' | 'md' | 'lg';
 
 type BaseProps = {

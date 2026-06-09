@@ -1,4 +1,3 @@
-import { ButtonLink } from '@/components/ui';
 import styles from './charterStandard.module.css';
 
 const standards = [
@@ -39,9 +38,6 @@ function CharterStandard() {
             Luxury is more than the vessel. It is a calm arrival, a considered
             route and a team that understands how you prefer to travel.
           </p>
-          <ButtonLink href="#plan-charter" variant="secondary">
-            Begin planning
-          </ButtonLink>
         </div>
 
         <div className={styles.standards}>

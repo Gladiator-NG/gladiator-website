@@ -50,6 +50,7 @@ export interface CreateBookingInput {
   beach_house_id?: string | null;
   beach_house_booking_mode?: BeachHouseBookingMode | null;
   parent_beach_house_booking_id?: string | null;
+  parent_beach_house_booking_reference?: string | null;
   customer_name: string;
   customer_email: string;
   customer_phone?: string;
@@ -123,6 +124,8 @@ export async function createBooking(
       p_hours: input.hours ?? null,
       p_rental_type: input.rental_type ?? null,
       p_rental_route_id: input.rental_route_id ?? null,
+      p_parent_beach_house_booking_reference:
+        input.parent_beach_house_booking_reference ?? null,
       p_notes: input.notes ?? null,
     })
 

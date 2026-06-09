@@ -2,6 +2,7 @@
 
 import Image from 'next/image';
 import { type FormEvent, useMemo, useRef, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { useAvailabilityCheck } from '@/hooks/useAvailabilityCheck';
 import { useBeachHouses } from '@/hooks/useBeachHouses';
 import { useBoats, useRentalBoats } from '@/hooks/useBoats';
@@ -14,6 +15,7 @@ import {
   Card,
   FormField,
   SelectInput,
+  TabNavigation,
   TextArea,
   TextInput,
 } from '@/components/ui';
@@ -36,6 +38,13 @@ const experienceLabels: Record<Experience, string> = {
   beach_house: 'Waterfront stays',
   boat_rental: 'Boat transfers',
 };
+
+const experienceTabs = Object.entries(experienceLabels).map(
+  ([value, label]) => ({
+    label,
+    value: value as Experience,
+  }),
+);
 
 function addHours(time: string, duration: number) {
   const [hours, minutes] = time.split(':').map(Number);
@@ -94,6 +103,9 @@ function ReservationPlanner() {
     useState<BeachHouseBookingMode>('overnight');
   const [routeId, setRouteId] = useState('');
   const [rentalType, setRentalType] = useState<RentalType>('outbound');
+  const [isBeachHouseTransfer, setIsBeachHouseTransfer] = useState(false);
+  const [beachHouseBookingReference, setBeachHouseBookingReference] =
+    useState('');
   const [request, setRequest] = useState<AvailabilityParams | null>(null);
   const [customerName, setCustomerName] = useState('');
   const [customerEmail, setCustomerEmail] = useState('');
@@ -247,6 +259,8 @@ function ReservationPlanner() {
     setLocation('');
     setRouteId('');
     setReturnDate('');
+    setIsBeachHouseTransfer(false);
+    setBeachHouseBookingReference('');
     setCheckOutTime('11:00');
     resetOutcome();
   }
@@ -324,6 +338,9 @@ function ReservationPlanner() {
 
     if (experience === 'boat_rental') {
       if (!selectedRoute) return null;
+      if (isBeachHouseTransfer && !beachHouseBookingReference.trim()) {
+        return null;
+      }
       if (rentalType === 'round_trip') {
         if (!returnDate || !returnTime || returnDate < date) return null;
         if (returnDate === date && returnTime <= startTime) return null;
@@ -381,6 +398,10 @@ function ReservationPlanner() {
             : durationUsed,
       rental_type: experience === 'boat_rental' ? rentalType : null,
       rental_route_id: experience === 'boat_rental' ? routeId : null,
+      parent_beach_house_booking_reference:
+        experience === 'boat_rental' && isBeachHouseTransfer
+          ? beachHouseBookingReference.trim()
+          : null,
       pickup_location:
         experience === 'boat_rental'
           ? selectedRoute?.from_location?.name
@@ -396,6 +417,14 @@ function ReservationPlanner() {
     event.preventDefault();
     const payload = bookingPayload();
     if (!payload) return;
+    if (
+      experience === 'boat_rental' &&
+      isBeachHouseTransfer &&
+      !beachHouseBookingReference.trim()
+    ) {
+      setSubmissionError('Please provide the waterfront stay booking number.');
+      return;
+    }
 
     setSubmissionError('');
     try {
@@ -434,19 +463,12 @@ function ReservationPlanner() {
       </div>
 
       <div className="wrap" id="listings">
-        <nav className={styles.tabs} aria-label="Experience type">
-          {Object.entries(experienceLabels).map(([value, label]) => (
-            <Button
-              className={experience === value ? styles.activeTab : styles.tab}
-              key={value}
-              onClick={() => switchExperience(value as Experience)}
-              type="button"
-              variant="ghost"
-            >
-              {label}
-            </Button>
-          ))}
-        </nav>
+        <TabNavigation
+          ariaLabel="Experience type"
+          onChange={switchExperience}
+          tabs={experienceTabs}
+          value={experience}
+        />
 
         <div className={styles.marketplace}>
           <div className={styles.catalog}>
@@ -679,6 +701,47 @@ function ReservationPlanner() {
                           <option value="round_trip">Round trip</option>
                         </SelectInput>
                       </FormField>
+                      <div className={styles.full}>
+                        <label className={styles.checkboxField}>
+                          <input
+                            checked={isBeachHouseTransfer}
+                            onChange={(event) => {
+                              setIsBeachHouseTransfer(event.target.checked);
+                              if (!event.target.checked) {
+                                setBeachHouseBookingReference('');
+                              }
+                              resetOutcome();
+                            }}
+                            type="checkbox"
+                          />
+                          <span>
+                            This transfer is for a booked waterfront stay
+                          </span>
+                        </label>
+                        {isBeachHouseTransfer && (
+                          <>
+                            <FormField label="Waterfront stay booking number">
+                              <TextInput
+                                autoCapitalize="characters"
+                                onChange={(event) => {
+                                  setBeachHouseBookingReference(
+                                    event.target.value,
+                                  );
+                                  resetOutcome();
+                                }}
+                                placeholder="e.g. GLD-123456"
+                                required
+                                type="text"
+                                value={beachHouseBookingReference}
+                              />
+                            </FormField>
+                            <p className={styles.fieldHint}>
+                              We will verify the stay reference and link both
+                              bookings before confirming the transfer.
+                            </p>
+                          </>
+                        )}
+                      </div>
                     </>
                   )}
 
@@ -923,104 +986,139 @@ function ReservationPlanner() {
         </div>
       </div>
 
-      {gallery && (
-        <div
-          className={styles.galleryOverlay}
-          onClick={() => setGallery(null)}
-          role="presentation"
-        >
-          <div
-            aria-modal="true"
-            className={styles.galleryDialog}
-            onClick={(event) => event.stopPropagation()}
-            role="dialog"
+      <AnimatePresence>
+        {gallery && (
+          <motion.div
+            animate={{ opacity: 1 }}
+            className={styles.galleryOverlay}
+            exit={{ opacity: 0 }}
+            initial={{ opacity: 0 }}
+            onClick={() => setGallery(null)}
+            role="presentation"
+            transition={{ duration: 0.18 }}
           >
-            <div className={styles.galleryHeader}>
-              <div>
-                <p>Gallery</p>
-                <h2>{gallery.listing.name}</h2>
+            <motion.div
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              aria-modal="true"
+              className={styles.galleryDialog}
+              exit={{ opacity: 0, scale: 0.98, y: 18 }}
+              initial={{ opacity: 0, scale: 0.98, y: 24 }}
+              onClick={(event) => event.stopPropagation()}
+              role="dialog"
+              transition={{ type: 'spring', stiffness: 280, damping: 28 }}
+            >
+              <div className={styles.galleryHeader}>
+                <div>
+                  <p>Gallery</p>
+                  <h2>{gallery.listing.name}</h2>
+                </div>
+                <Button
+                  className={styles.galleryClose}
+                  onClick={() => setGallery(null)}
+                  type="button"
+                  variant="ghost"
+                >
+                  Close
+                </Button>
               </div>
-              <Button onClick={() => setGallery(null)} type="button">
-                Close
-              </Button>
-            </div>
 
-            <div className={styles.galleryImage}>
-              <Image
-                alt={gallery.listing.name}
-                fill
-                sizes="90vw"
-                src={
-                  listingImages(gallery.listing)[gallery.index] ??
-                  '/images/charter-hero.png'
-                }
-              />
-              {listingImages(gallery.listing).length > 1 && (
-                <>
-                  <Button
-                    aria-label="Previous gallery image"
-                    className={`${styles.galleryControl} ${styles.galleryPrevious}`}
-                    onClick={() => setGalleryImage(gallery.index - 1)}
-                    type="button"
-                    variant="icon"
-                  >
-                    <ArrowIcon direction="previous" />
-                  </Button>
-                  <Button
-                    aria-label="Next gallery image"
-                    className={`${styles.galleryControl} ${styles.galleryNext}`}
-                    onClick={() => setGalleryImage(gallery.index + 1)}
-                    type="button"
-                    variant="icon"
-                  >
-                    <ArrowIcon direction="next" />
-                  </Button>
-                </>
-              )}
-            </div>
-
-            <div className={styles.galleryFooter}>
-              <span>
-                {gallery.index + 1} of {listingImages(gallery.listing).length}
-              </span>
-              <div className={styles.galleryThumbs}>
-                {listingImages(gallery.listing).map((imageUrl, index) => (
-                  <Button
-                    aria-label={`View image ${index + 1}`}
-                    className={
-                      index === gallery.index ? styles.activeThumb : undefined
-                    }
-                    key={`${imageUrl}-${index}`}
-                    onClick={() => setGalleryImage(index)}
-                    type="button"
-                    variant="ghost"
+              <div className={styles.galleryImage}>
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    animate={{ opacity: 1, scale: 1 }}
+                    className={styles.galleryImageFrame}
+                    exit={{ opacity: 0, scale: 1.015 }}
+                    initial={{ opacity: 0, scale: 1.015 }}
+                    key={`${gallery.listing.id}-${gallery.index}`}
+                    transition={{ duration: 0.22, ease: [0.22, 0.8, 0.22, 1] }}
                   >
                     <Image
-                      alt=""
+                      alt={gallery.listing.name}
                       fill
-                      sizes="7.2rem"
-                      src={imageUrl}
+                      sizes="90vw"
+                      src={
+                        listingImages(gallery.listing)[gallery.index] ??
+                        '/images/charter-hero.png'
+                      }
                     />
-                  </Button>
-                ))}
+                  </motion.div>
+                </AnimatePresence>
+                {listingImages(gallery.listing).length > 1 && (
+                  <>
+                    <Button
+                      aria-label="Previous gallery image"
+                      className={`${styles.galleryControl} ${styles.galleryPrevious}`}
+                      onClick={() => setGalleryImage(gallery.index - 1)}
+                      type="button"
+                      variant="icon"
+                    >
+                      <ArrowIcon direction="previous" />
+                    </Button>
+                    <Button
+                      aria-label="Next gallery image"
+                      className={`${styles.galleryControl} ${styles.galleryNext}`}
+                      onClick={() => setGalleryImage(gallery.index + 1)}
+                      type="button"
+                      variant="icon"
+                    >
+                      <ArrowIcon direction="next" />
+                    </Button>
+                  </>
+                )}
               </div>
-            </div>
-          </div>
-        </div>
-      )}
 
-      {isBookingModalOpen && selectedAsset && (
-        <div
-          className={styles.modalOverlay}
-          onClick={closeBookingModal}
-          role="presentation"
-        >
-          <div
-            aria-modal="true"
-            className={styles.bookingDialog}
-            onClick={(event) => event.stopPropagation()}
-            role="dialog"
+              <div className={styles.galleryFooter}>
+                <span>
+                  {gallery.index + 1} of {listingImages(gallery.listing).length}
+                </span>
+                <div className={styles.galleryThumbs}>
+                  {listingImages(gallery.listing).map((imageUrl, index) => (
+                    <Button
+                      aria-label={`View image ${index + 1}`}
+                      className={
+                        index === gallery.index ? styles.activeThumb : undefined
+                      }
+                      key={`${imageUrl}-${index}`}
+                      onClick={() => setGalleryImage(index)}
+                      type="button"
+                      variant="ghost"
+                    >
+                      <Image
+                        alt=""
+                        fill
+                        sizes="7.2rem"
+                        src={imageUrl}
+                      />
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {isBookingModalOpen && selectedAsset && (
+          <motion.div
+            animate={{ opacity: 1 }}
+            className={styles.modalOverlay}
+            exit={{ opacity: 0 }}
+            initial={{ opacity: 0 }}
+            onClick={closeBookingModal}
+            role="presentation"
+            transition={{ duration: 0.18 }}
           >
+            <motion.div
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              aria-modal="true"
+              className={styles.bookingDialog}
+              exit={{ opacity: 0, scale: 0.98, y: 18 }}
+              initial={{ opacity: 0, scale: 0.98, y: 24 }}
+              onClick={(event) => event.stopPropagation()}
+              role="dialog"
+              transition={{ type: 'spring', stiffness: 280, damping: 28 }}
+            >
             <div className={styles.bookingHeader}>
               <div>
                 <p>Reserve experience</p>
@@ -1082,9 +1180,10 @@ function ReservationPlanner() {
                 {isCreating ? 'Sending request...' : 'Request booking'}
               </Button>
             </form>
-          </div>
-        </div>
-      )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </section>
   );
 }

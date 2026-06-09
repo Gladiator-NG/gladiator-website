@@ -30,9 +30,6 @@ function Footer() {
           <SmoothLink href="#contact">
             Contact us
           </SmoothLink>
-          <SmoothLink href="#plan-charter">
-            Plan a charter
-          </SmoothLink>
         </nav>
 
         <div className={styles.contact}>

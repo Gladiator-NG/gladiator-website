@@ -46,10 +46,6 @@
   color: var(--color-white);
 }
 
-.bookButton {
-  border-radius: 999rem;
-}
-
 .mobileMenu {
   display: none;
 }

@@ -63,6 +63,36 @@
   color: var(--color-white);
 }
 
+.hero {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: var(--color-white);
+}
+
+.hero::before {
+  background: var(--gradient-sunset);
+  content: '';
+  inset: 0;
+  position: absolute;
+  z-index: -2;
+}
+
+.hero::after {
+  background: var(--color-white);
+  display: block;
+  transform: translateX(-101%);
+  transition: transform 0.18s var(--ease-snap);
+}
+
+.hero:hover {
+  border-color: rgba(255, 255, 255, 0.9);
+  color: var(--color-text);
+}
+
+.hero:hover::after {
+  transform: translateX(0);
+}
+
 .secondary {
   background: transparent;
   border: 1px solid rgba(255, 255, 255, 0.42);

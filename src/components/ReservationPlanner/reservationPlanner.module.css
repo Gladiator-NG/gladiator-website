@@ -36,40 +36,6 @@
   flex: 0 1 310px;
 }
 
-.tabs {
-  border-bottom: 1px solid var(--color-border);
-  display: flex;
-  gap: var(--space-7);
-  margin-bottom: var(--space-7);
-  overflow-x: auto;
-}
-
-.tab,
-.activeTab {
-  background: transparent;
-  border: 0;
-  color: var(--color-ink-muted);
-  font-size: 1.4rem;
-  font-weight: 800;
-  padding: 0 0 var(--space-4);
-  position: relative;
-  white-space: nowrap;
-}
-
-.activeTab {
-  color: var(--color-text);
-}
-
-.activeTab::before {
-  background: var(--gradient-ocean);
-  bottom: -1px;
-  content: '';
-  height: 3px;
-  left: 0;
-  position: absolute;
-  right: 0;
-}
-
 .marketplace {
   align-items: start;
   display: grid;
@@ -375,6 +341,37 @@
   padding: 15px;
 }
 
+.checkboxField {
+  align-items: center;
+  background: var(--color-shell);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  display: flex;
+  font-size: 1.4rem;
+  font-weight: 800;
+  gap: var(--space-3);
+  padding: 1.3rem 1.4rem;
+}
+
+.checkboxField input {
+  accent-color: var(--color-ocean-blue);
+  flex: 0 0 auto;
+  height: 1.8rem;
+  width: 1.8rem;
+}
+
+.fieldHint {
+  color: var(--color-ink-muted);
+  font-size: 1.3rem;
+  line-height: 1.5;
+  margin-top: var(--space-2);
+}
+
+.checkboxField + label {
+  margin-top: var(--space-3);
+}
+
 .price span {
   margin: 0;
 }
@@ -465,20 +462,24 @@
 
 .galleryOverlay {
   align-items: center;
-  background: rgba(8, 12, 18, 0.78);
+  background:
+    radial-gradient(circle at 50% 20%, rgba(47, 140, 202, 0.16), transparent 36%),
+    rgba(5, 8, 12, 0.84);
+  backdrop-filter: blur(1.2rem);
   display: flex;
   inset: 0;
   justify-content: center;
   padding: var(--space-5);
   position: fixed;
   z-index: 50;
-  animation: galleryFadeIn 180ms var(--ease-out);
 }
 
 .modalOverlay {
   align-items: center;
-  animation: galleryFadeIn 180ms var(--ease-out);
-  background: rgba(8, 12, 18, 0.78);
+  background:
+    radial-gradient(circle at 50% 20%, rgba(47, 140, 202, 0.16), transparent 36%),
+    rgba(5, 8, 12, 0.84);
+  backdrop-filter: blur(1.2rem);
   display: flex;
   inset: 0;
   justify-content: center;
@@ -488,7 +489,6 @@
 }
 
 .bookingDialog {
-  animation: galleryRiseIn 240ms cubic-bezier(0.22, 0.8, 0.22, 1);
   background: var(--color-surface);
   border: 1px solid var(--color-border-soft);
   border-radius: var(--radius-lg);
@@ -535,36 +535,24 @@
 }
 
 .galleryDialog {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border-soft);
-  border-radius: var(--radius-lg);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(246, 249, 253, 0.98)),
+    var(--color-surface);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 2.4rem;
   max-height: calc(100svh - 4.8rem);
-  max-width: 104rem;
+  max-width: 112rem;
   overflow: hidden;
-  width: min(100%, 104rem);
-  animation: galleryRiseIn 240ms cubic-bezier(0.22, 0.8, 0.22, 1);
-}
-
-@keyframes galleryFadeIn {
-  from {
-    opacity: 0;
-  }
-}
-
-@keyframes galleryRiseIn {
-  from {
-    opacity: 0;
-    transform: translateY(1.2rem) scale(0.985);
-  }
+  width: min(100%, 112rem);
 }
 
 .galleryHeader {
   align-items: center;
-  border-bottom: 1px solid var(--color-border-soft);
+  border-bottom: 1px solid rgba(30, 30, 30, 0.08);
   display: flex;
   gap: var(--space-4);
   justify-content: space-between;
-  padding: var(--space-5);
+  padding: 2.4rem 2.8rem;
 }
 
 .galleryHeader p {
@@ -579,20 +567,55 @@
 .galleryHeader h2 {
   color: var(--color-text);
   font-size: clamp(2.4rem, 3vw, 3.6rem);
+  letter-spacing: -0.04em;
+}
+
+.galleryClose {
+  background: rgba(30, 30, 30, 0.04);
+  flex: 0 0 auto;
 }
 
 .galleryImage {
   aspect-ratio: 16 / 9;
-  background: var(--color-text);
+  background:
+    radial-gradient(circle at 50% 40%, rgba(113, 188, 230, 0.14), transparent 36%),
+    #111;
   max-height: 62svh;
+  overflow: hidden;
   position: relative;
 }
 
-.galleryImage img {
-  object-fit: contain;
+.galleryImage::before,
+.galleryImage::after {
+  content: '';
+  pointer-events: none;
+  position: absolute;
+  z-index: 1;
+}
+
+.galleryImage::before {
+  background: linear-gradient(90deg, rgba(17, 17, 17, 0.72), transparent 16%, transparent 84%, rgba(17, 17, 17, 0.72));
+  inset: 0;
+}
+
+.galleryImage::after {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  inset: 1.2rem;
+}
+
+.galleryImageFrame {
+  inset: 0;
+  position: absolute;
+}
+
+.galleryImageFrame img {
+  object-fit: cover;
 }
 
 .galleryControl {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(1.2rem);
+  border-color: rgba(255, 255, 255, 0.36);
   height: 4.4rem;
   position: absolute;
   top: 50%;
@@ -611,11 +634,12 @@
 
 .galleryFooter {
   align-items: center;
-  border-top: 1px solid var(--color-border-soft);
+  background: rgba(255, 255, 255, 0.72);
+  border-top: 1px solid rgba(30, 30, 30, 0.08);
   display: flex;
   gap: var(--space-4);
   justify-content: space-between;
-  padding: var(--space-4) var(--space-5);
+  padding: 1.8rem 2.8rem;
 }
 
 .galleryFooter span {
@@ -632,17 +656,27 @@
 }
 
 .galleryThumbs button {
-  border: 2px solid transparent;
-  border-radius: var(--radius-sm);
+  background: rgba(30, 30, 30, 0.04);
+  border: 2px solid rgba(30, 30, 30, 0.08);
+  border-radius: 1.2rem;
   flex: 0 0 auto;
-  height: 5.6rem;
+  height: 6rem;
   overflow: hidden;
   position: relative;
-  width: 7.2rem;
+  transition:
+    border-color var(--duration-base) var(--ease-out),
+    opacity var(--duration-base) var(--ease-out),
+    transform var(--duration-base) var(--ease-out);
+  width: 8rem;
+}
+
+.galleryThumbs button:hover {
+  transform: translateY(-0.2rem);
 }
 
 .galleryThumbs button.activeThumb {
   border-color: var(--color-ocean-blue);
+  opacity: 1;
 }
 
 .galleryThumbs img {
@@ -679,10 +713,6 @@
     flex-basis: auto;
   }
 
-  .tabs {
-    gap: var(--space-5);
-  }
-
   .listings {
     grid-template-columns: 1fr;
   }
@@ -690,17 +720,35 @@
 
 @media (max-width: 640px) {
   .galleryOverlay {
-    padding: var(--space-3);
+    align-items: end;
+    padding: var(--space-2);
   }
 
-  .galleryHeader,
+  .galleryDialog {
+    border-radius: 2rem;
+    max-height: calc(100svh - 1.6rem);
+  }
+
   .galleryFooter,
   .bookingHeader {
     align-items: stretch;
     flex-direction: column;
   }
 
+  .galleryHeader {
+    padding: 1.8rem;
+  }
+
   .galleryImage {
-    aspect-ratio: 4 / 5;
+    aspect-ratio: 1 / 1.05;
+  }
+
+  .galleryFooter {
+    padding: 1.6rem 1.8rem;
+  }
+
+  .galleryThumbs button {
+    height: 5.4rem;
+    width: 7rem;
   }
 }

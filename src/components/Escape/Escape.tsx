@@ -1,5 +1,4 @@
 import Image from 'next/image';
-import { ButtonLink } from '@/components/ui';
 
 import styles from './escape.module.css';
 
@@ -23,7 +22,6 @@ function Escape() {
               Extend an afternoon on the water into an overnight retreat, with
               your arrival and return coordinated by Gladiator.
             </p>
-            <ButtonLink href="#plan-charter">Design your itinerary</ButtonLink>
           </div>
         </div>
       </div>
