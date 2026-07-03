@@ -6,7 +6,6 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { useAvailabilityCheck } from '@/hooks/useAvailabilityCheck';
 import { useBeachHouses } from '@/hooks/useBeachHouses';
 import { useBoats, useRentalBoats } from '@/hooks/useBoats';
-import { useCreateBooking } from '@/hooks/useCreateBooking';
 import { useLocations } from '@/hooks/useLocations';
 import { useTransportRoutes } from '@/hooks/useTransportRoutes';
 import {
@@ -27,6 +26,7 @@ import type {
   CreateBookingInput,
   RentalType,
 } from '@/services/apiBooking';
+import { initializeBookingPayment } from '@/services/apiBooking';
 import type { Boat } from '@/services/apiBoat';
 import styles from './reservationPlanner.module.css';
 
@@ -113,6 +113,7 @@ function ReservationPlanner() {
   const [notes, setNotes] = useState('');
   const [confirmationReference, setConfirmationReference] = useState('');
   const [submissionError, setSubmissionError] = useState('');
+  const [isPaymentStarting, setIsPaymentStarting] = useState(false);
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
   const [imageIndexes, setImageIndexes] = useState<Record<string, number>>({});
   const [gallery, setGallery] = useState<{
@@ -134,7 +135,6 @@ function ReservationPlanner() {
   } = useBeachHouses();
   const { locations } = useLocations();
   const { routes, isLoading: routesLoading } = useTransportRoutes();
-  const { createAsync, isPending: isCreating } = useCreateBooking();
 
   const assets: Listing[] = useMemo(() => {
     if (experience === 'beach_house') return beachHouses;
@@ -246,6 +246,7 @@ function ReservationPlanner() {
     setCustomerPhone('');
     setNotes('');
     setSubmissionError('');
+    setIsPaymentStarting(false);
   }
 
   function closeBookingModal() {
@@ -427,11 +428,12 @@ function ReservationPlanner() {
     }
 
     setSubmissionError('');
+    setIsPaymentStarting(true);
     try {
-      const confirmation = await createAsync(payload);
-      setConfirmationReference(confirmation.reference_code);
-      closeBookingModal();
+      const payment = await initializeBookingPayment(payload);
+      window.location.assign(payment.authorizationUrl);
     } catch (error) {
+      setIsPaymentStarting(false);
       setSubmissionError(
         error instanceof Error
           ? error.message
@@ -958,8 +960,8 @@ function ReservationPlanner() {
                   !confirmationReference && (
                     <div className={styles.availablePanel}>
                       <div className={styles.available}>
-                        This option is available. Reserve it now and we will
-                        take payment in the next step once Paystack is connected.
+                        This option is available. Complete your details and pay
+                        securely with Paystack to confirm the booking.
                       </div>
                       <Button
                         onClick={() => setIsBookingModalOpen(true)}
@@ -1176,8 +1178,8 @@ function ReservationPlanner() {
               {submissionError && (
                 <p className={styles.notice}>{submissionError}</p>
               )}
-              <Button disabled={isCreating} type="submit">
-                {isCreating ? 'Sending request...' : 'Request booking'}
+              <Button disabled={isPaymentStarting} type="submit">
+                {isPaymentStarting ? 'Preparing payment...' : 'Continue to payment'}
               </Button>
             </form>
             </motion.div>

@@ -85,6 +85,11 @@ export interface BookingConfirmation {
   status: 'pending';
 }
 
+export interface PaymentInitialization {
+  authorizationUrl: string;
+  reference: string;
+}
+
 export interface BookingLookupInput {
   referenceCode: string;
   customerContact: string;
@@ -108,29 +113,58 @@ export interface BookingLookupResult {
 export async function createBooking(
   input: CreateBookingInput,
 ): Promise<BookingConfirmation> {
+  const payload = {
+    p_booking_type: input.booking_type,
+    p_asset_id: input.boat_id ?? input.beach_house_id,
+    p_booking_mode: input.beach_house_booking_mode ?? null,
+    p_customer_name: input.customer_name,
+    p_customer_email: input.customer_email,
+    p_customer_phone: input.customer_phone ?? '',
+    p_guest_count: input.guest_count ?? 1,
+    p_start_date: input.start_date,
+    p_end_date: input.end_date,
+    p_start_time: input.start_time ?? null,
+    p_end_time: input.end_time ?? null,
+    p_hours: input.hours ?? null,
+    p_rental_type: input.rental_type ?? null,
+    p_rental_route_id: input.rental_route_id ?? null,
+    p_notes: input.notes ?? null,
+    ...(input.parent_beach_house_booking_reference
+      ? {
+          p_parent_beach_house_booking_reference:
+            input.parent_beach_house_booking_reference,
+        }
+      : {}),
+  };
+
   const { data, error } = await getSupabaseClient()
-    .rpc('submit_public_booking_request', {
-      p_booking_type: input.booking_type,
-      p_asset_id: input.boat_id ?? input.beach_house_id,
-      p_booking_mode: input.beach_house_booking_mode ?? null,
-      p_customer_name: input.customer_name,
-      p_customer_email: input.customer_email,
-      p_customer_phone: input.customer_phone ?? '',
-      p_guest_count: input.guest_count ?? 1,
-      p_start_date: input.start_date,
-      p_end_date: input.end_date,
-      p_start_time: input.start_time ?? null,
-      p_end_time: input.end_time ?? null,
-      p_hours: input.hours ?? null,
-      p_rental_type: input.rental_type ?? null,
-      p_rental_route_id: input.rental_route_id ?? null,
-      p_parent_beach_house_booking_reference:
-        input.parent_beach_house_booking_reference ?? null,
-      p_notes: input.notes ?? null,
-    })
+    .rpc('submit_public_booking_request', payload)
 
   if (error) throw new Error(error.message);
   return data as BookingConfirmation;
+}
+
+export async function initializeBookingPayment(
+  booking: CreateBookingInput,
+): Promise<PaymentInitialization> {
+  const response = await fetch('/api/paystack/initialize', {
+    body: JSON.stringify({ booking }),
+    headers: { 'Content-Type': 'application/json' },
+    method: 'POST',
+  });
+
+  const body = (await response.json().catch(() => null)) as
+    | (PaymentInitialization & { message?: string })
+    | null;
+
+  if (!response.ok || !body?.authorizationUrl) {
+    throw new Error(body?.message ?? 'Payment could not be initialized.');
+  }
+
+  return {
+    authorizationUrl: body.authorizationUrl,
+    reference: body.reference,
+  };
 }
 
 export async function lookupBooking(

@@ -31,8 +31,21 @@ function formatStatus(value: string) {
   return value.replaceAll('_', ' ');
 }
 
-function BookingLookup() {
-  const [referenceCode, setReferenceCode] = useState('');
+function bookingReferenceFrom(value: string) {
+  const normalized = value.trim().toUpperCase();
+  const match = normalized.match(/GLD-\d+/);
+
+  return match?.[0] ?? normalized;
+}
+
+type BookingLookupProps = {
+  initialReferenceCode?: string;
+};
+
+function BookingLookup({ initialReferenceCode = '' }: BookingLookupProps) {
+  const [referenceCode, setReferenceCode] = useState(() =>
+    bookingReferenceFrom(initialReferenceCode),
+  );
   const [customerContact, setCustomerContact] = useState('');
   const [notFound, setNotFound] = useState(false);
   const { lookupAsync, booking, isPending, error, reset } = useBookingLookup();
@@ -43,7 +56,7 @@ function BookingLookup() {
 
     try {
       const result = await lookupAsync({
-        referenceCode: referenceCode.trim(),
+        referenceCode: bookingReferenceFrom(referenceCode),
         customerContact: customerContact.trim(),
       });
 
@@ -54,7 +67,7 @@ function BookingLookup() {
   }
 
   function handleChange(callback: (value: string) => void, value: string) {
-    callback(value);
+    callback(bookingReferenceFrom(value));
     setNotFound(false);
     reset();
   }
