@@ -65,6 +65,45 @@
   line-height: 1.7;
 }
 
+.socialLinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  margin-top: var(--space-2);
+}
+
+.socialLinks a {
+  align-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 50%;
+  color: rgba(255, 255, 255, 0.72);
+  display: inline-flex;
+  height: 42px;
+  justify-content: center;
+  transition: border-color 180ms ease, color 180ms ease;
+  width: 42px;
+}
+
+.socialLinks a:hover {
+  border-color: rgba(255, 255, 255, 0.7);
+  color: white;
+}
+
+.socialLinks svg {
+  fill: none;
+  height: 22px;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+  width: 22px;
+}
+
+.socialLinks .iconFill {
+  fill: currentColor;
+  stroke: none;
+}
+
 .bottom {
   color: rgba(255, 255, 255, 0.46);
   display: flex;
