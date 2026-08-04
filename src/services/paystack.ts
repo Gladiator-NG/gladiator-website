@@ -629,7 +629,7 @@ export async function verifyAndConfirmPayment(
       ok: false,
       message: paymentWasCaptured
         ? 'Payment was received, but the booking needs manual confirmation. Please do not pay again; our team will contact you.'
-        : 'Payment was not successful for this booking.',
+        : 'Paystack has not confirmed this payment yet. Please do not pay again; refresh this page shortly or contact our team.',
       needsAttention: paymentWasCaptured,
       paymentReceived: paymentWasCaptured,
     };
