@@ -20,6 +20,7 @@ type PaystackVerifyResponse = {
   message: string;
   data?: {
     amount: number;
+    requested_amount?: number;
     currency: string;
     reference: string;
     status: string;
@@ -580,7 +581,10 @@ export async function verifyAndConfirmPayment(
   const quotedAmount = Number(metadata.quoted_amount ?? 0);
   const quotedCurrency = metadata.quoted_currency ?? DEFAULT_CURRENCY;
   const paid = result.data.status === 'success';
-  const amountMatches = result.data.amount === toSubunit(quotedAmount);
+  // When the customer bears Paystack's fee, `amount` includes that fee while
+  // `requested_amount` remains the booking price supplied at initialization.
+  const requestedAmount = result.data.requested_amount ?? result.data.amount;
+  const amountMatches = requestedAmount === toSubunit(quotedAmount);
   const currencyMatches = result.data.currency === quotedCurrency;
 
   if (!paid || !input || !amountMatches || !currencyMatches) {
