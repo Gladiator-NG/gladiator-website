@@ -1,6 +1,9 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { verifyAndConfirmPayment } from '@/services/paystack';
+import {
+  type PaymentConfirmation,
+  verifyAndConfirmPayment,
+} from '@/services/paystack';
 import styles from './paymentVerify.module.css';
 
 export const metadata: Metadata = {
@@ -27,9 +30,21 @@ export default async function PaymentVerifyPage({
 }: PaymentVerifyPageProps) {
   const params = await searchParams;
   const reference = params.reference ?? params.trxref ?? '';
-  const result = reference
-    ? await verifyAndConfirmPayment(reference)
-    : { ok: false, message: 'Payment reference is missing.' };
+  let result: PaymentConfirmation;
+
+  try {
+    result = reference
+      ? await verifyAndConfirmPayment(reference)
+      : { ok: false, message: 'Payment reference is missing.' };
+  } catch {
+    result = {
+      ok: false,
+      message:
+        'We could not check the payment yet. Please do not pay again; refresh this page or contact our team with your debit reference.',
+    };
+  }
+
+  const paymentNeedsAttention = result.paymentReceived && !result.ok;
   const bookingLookupHref = result.booking
     ? {
         hash: 'booking-lookup',
@@ -42,12 +57,18 @@ export default async function PaymentVerifyPage({
     <main className={styles.page}>
       <section className={styles.panel}>
         <p className={styles.eyebrow}>
-          {result.ok ? 'Booking confirmed' : 'Payment not confirmed'}
+          {result.ok
+            ? 'Booking confirmed'
+            : paymentNeedsAttention
+              ? 'Payment received'
+              : 'Verification pending'}
         </p>
         <h1>
           {result.ok
             ? 'Your payment was successful.'
-            : 'We could not confirm this payment.'}
+            : paymentNeedsAttention
+              ? 'Your payment was received.'
+              : 'We could not verify this payment yet.'}
         </h1>
         <p>{result.message}</p>
 

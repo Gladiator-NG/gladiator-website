@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import type { CreateBookingInput } from './apiBooking';
 import { getSupabaseServerClient } from './supabaseServer';
 
@@ -35,6 +36,8 @@ type PaystackVerifyResponse = {
 export type PaymentConfirmation = {
   ok: boolean;
   message: string;
+  paymentReceived?: boolean;
+  needsAttention?: boolean;
   booking?: {
     reference_code: string;
     status: string;
@@ -77,6 +80,19 @@ type RouteQuoteRecord = {
 type BookingQuote = {
   totalAmount: number;
   currency: string;
+};
+
+type PaymentAttempt = {
+  authorization_url: string | null;
+  booking_id: string | null;
+  payment_reference: string;
+  provider_status: string | null;
+  status:
+    | 'initialized'
+    | 'abandoned'
+    | 'paid'
+    | 'confirmed'
+    | 'requires_attention';
 };
 
 function getPaystackSecretKey() {
@@ -128,6 +144,34 @@ function paymentReference() {
       : Date.now().toString(36);
 
   return `GLD-PAY-${suffix}`;
+}
+
+function paymentVerificationUrl(reference: string) {
+  return `${getSiteUrl()}/payment/verify?reference=${encodeURIComponent(reference)}`;
+}
+
+function paymentRequestKey(input: CreateBookingInput, quote: BookingQuote) {
+  const normalized = {
+    asset_id: input.boat_id ?? input.beach_house_id ?? null,
+    beach_house_booking_mode: input.beach_house_booking_mode ?? null,
+    booking_type: input.booking_type,
+    currency: quote.currency,
+    customer_email: input.customer_email.trim().toLowerCase(),
+    customer_phone: input.customer_phone?.replace(/\s+/g, '') ?? '',
+    end_date: input.end_date,
+    end_time: input.end_time ?? null,
+    guest_count: input.guest_count ?? 1,
+    hours: input.hours ?? null,
+    parent_beach_house_booking_reference:
+      input.parent_beach_house_booking_reference?.trim().toUpperCase() ?? null,
+    quoted_amount: quote.totalAmount,
+    rental_route_id: input.rental_route_id ?? null,
+    rental_type: input.rental_type ?? null,
+    start_date: input.start_date,
+    start_time: input.start_time ?? null,
+  };
+
+  return createHash('sha256').update(JSON.stringify(normalized)).digest('hex');
 }
 
 function parsePaystackMetadata(
@@ -419,6 +463,33 @@ export async function initializeBookingPayment(input: CreateBookingInput) {
     throw new Error('This booking does not have a valid payable amount.');
   }
 
+  const supabase = getSupabaseServerClient();
+  const requestKey = paymentRequestKey(input, quote);
+  const { data: previousAttempt, error: previousAttemptError } = await supabase
+    .from('payment_attempts')
+    .select(
+      'authorization_url, booking_id, payment_reference, provider_status, status',
+    )
+    .eq('request_key', requestKey)
+    .neq('status', 'abandoned')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (previousAttemptError) throw new Error(previousAttemptError.message);
+
+  if (previousAttempt) {
+    const attempt = previousAttempt as PaymentAttempt;
+    return {
+      access_code: '',
+      authorization_url:
+        attempt.status === 'initialized' && attempt.authorization_url
+          ? attempt.authorization_url
+          : paymentVerificationUrl(attempt.payment_reference),
+      reference: attempt.payment_reference,
+    };
+  }
+
   const reference = paymentReference();
   const result = await paystackFetch<PaystackInitializeResponse>(
     '/transaction/initialize',
@@ -444,6 +515,41 @@ export async function initializeBookingPayment(input: CreateBookingInput) {
 
   if (!result.status || !result.data?.authorization_url) {
     throw new Error(result.message || 'Could not initialize payment.');
+  }
+
+  const { error: attemptError } = await supabase.from('payment_attempts').insert({
+    authorization_url: result.data.authorization_url,
+    booking_payload: input,
+    currency: quote.currency,
+    payment_reference: reference,
+    provider_status: 'initialized',
+    quoted_amount: quote.totalAmount,
+    request_key: requestKey,
+    status: 'initialized',
+  });
+
+  if (attemptError) {
+    const { data: concurrentAttempt } = await supabase
+      .from('payment_attempts')
+      .select(
+        'authorization_url, booking_id, payment_reference, provider_status, status',
+      )
+      .eq('request_key', requestKey)
+      .eq('status', 'initialized')
+      .maybeSingle();
+
+    if (concurrentAttempt) {
+      const attempt = concurrentAttempt as PaymentAttempt;
+      return {
+        access_code: '',
+        authorization_url:
+          attempt.authorization_url ??
+          paymentVerificationUrl(attempt.payment_reference),
+        reference: attempt.payment_reference,
+      };
+    }
+
+    throw new Error(attemptError.message);
   }
 
   return result.data;
@@ -478,43 +584,120 @@ export async function verifyAndConfirmPayment(
   const currencyMatches = result.data.currency === quotedCurrency;
 
   if (!paid || !input || !amountMatches || !currencyMatches) {
+    const supabase = getSupabaseServerClient();
+    const paymentWasCaptured = paid;
+    const validationError =
+      'Paystack reported success, but the stored checkout details did not pass validation.';
+
+    if (paymentWasCaptured) {
+      await supabase.from('payment_attempts').upsert(
+        {
+          booking_payload: input ?? {},
+          currency: result.data.currency,
+          error_message: validationError,
+          payment_reference: normalizedReference,
+          provider_status: result.data.status,
+          quoted_amount:
+            quotedAmount > 0 ? quotedAmount : result.data.amount / 100,
+          request_key: input
+            ? paymentRequestKey(input, {
+                currency: quotedCurrency,
+                totalAmount: quotedAmount,
+              })
+            : createHash('sha256')
+                .update(normalizedReference)
+                .digest('hex'),
+          status: 'requires_attention',
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'payment_reference' },
+      );
+    } else {
+      await supabase
+        .from('payment_attempts')
+        .update({
+          error_message: null,
+          provider_status: result.data.status,
+          status:
+            result.data.status === 'abandoned' ? 'abandoned' : 'initialized',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('payment_reference', normalizedReference);
+    }
+
     return {
       ok: false,
-      message: 'Payment was not successful for this booking.',
-    };
-  }
-
-  const currentQuote = await quoteBooking(input);
-
-  if (
-    toSubunit(currentQuote.totalAmount) !== result.data.amount ||
-    currentQuote.currency !== result.data.currency
-  ) {
-    return {
-      ok: false,
-      message:
-        'Payment was received, but the booking details changed before confirmation. Please contact support.',
+      message: paymentWasCaptured
+        ? 'Payment was received, but the booking needs manual confirmation. Please do not pay again; our team will contact you.'
+        : 'Payment was not successful for this booking.',
+      needsAttention: paymentWasCaptured,
+      paymentReceived: paymentWasCaptured,
     };
   }
 
   const supabase = getSupabaseServerClient();
+  const requestKey = paymentRequestKey(input, {
+    currency: quotedCurrency,
+    totalAmount: quotedAmount,
+  });
+  const { error: paidAttemptError } = await supabase
+    .from('payment_attempts')
+    .upsert(
+      {
+        booking_payload: input,
+        currency: quotedCurrency,
+        error_message: null,
+        payment_reference: normalizedReference,
+        provider_status: result.data.status,
+        quoted_amount: quotedAmount,
+        request_key: requestKey,
+        status: 'paid',
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'payment_reference' },
+    );
+
+  if (paidAttemptError) {
+    return {
+      ok: false,
+      message:
+        'Payment was received, but confirmation is temporarily delayed. Please do not pay again; our team will contact you.',
+      needsAttention: true,
+      paymentReceived: true,
+    };
+  }
+
   const { data: existing, error: existingError } = await supabase
     .from('bookings')
-    .select('reference_code, status, payment_status, total_amount, currency')
+    .select('id, reference_code, status, payment_status, total_amount, currency')
     .eq('payment_reference', normalizedReference)
     .maybeSingle();
 
   if (existingError) {
     return {
       ok: false,
-      message: existingError.message,
+      message:
+        'Payment was received, but confirmation is temporarily delayed. Please do not pay again; our team will contact you.',
+      needsAttention: true,
+      paymentReceived: true,
     };
   }
 
   if (existing) {
+    await supabase
+      .from('payment_attempts')
+      .update({
+        booking_id: existing.id,
+        error_message: null,
+        status: 'confirmed',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('payment_reference', normalizedReference);
+
     return {
       ok: true,
       message: 'Payment verified and booking confirmed.',
+      paymentReceived: true,
       booking: {
         reference_code: existing.reference_code,
         status: existing.status,
@@ -526,42 +709,56 @@ export async function verifyAndConfirmPayment(
   }
 
   const { data: created, error: createError } = await supabase.rpc(
-    'submit_public_booking_request',
-    publicBookingRpcPayload({
-      ...input,
-      total_amount: currentQuote.totalAmount,
-    }),
+    'confirm_public_booking_payment',
+    {
+      ...publicBookingRpcPayload(input),
+      p_currency: quotedCurrency,
+      p_expected_total: quotedAmount,
+      p_payment_reference: normalizedReference,
+    },
   );
 
   if (createError || !created) {
+    await supabase
+      .from('payment_attempts')
+      .update({
+        error_message: createError?.message ?? 'Booking could not be created.',
+        status: 'requires_attention',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('payment_reference', normalizedReference);
+
     return {
       ok: false,
-      message: createError?.message ?? 'Booking could not be created.',
+      message:
+        'Payment was received, but the booking needs manual confirmation. Please do not pay again; our team will contact you.',
+      needsAttention: true,
+      paymentReceived: true,
     };
   }
 
-  const bookingId = (created as { id: string }).id;
-  const { data: updated, error: updateError } = await supabase
-    .from('bookings')
+  const updated = created as {
+    id: string;
+    reference_code: string;
+    status: string;
+    payment_status: string;
+    total_amount: number;
+    currency: string;
+  };
+  await supabase
+    .from('payment_attempts')
     .update({
-      payment_reference: normalizedReference,
-      payment_status: 'paid',
+      booking_id: updated.id,
+      error_message: null,
       status: 'confirmed',
+      updated_at: new Date().toISOString(),
     })
-    .eq('id', bookingId)
-    .select('reference_code, status, payment_status, total_amount, currency')
-    .single();
-
-  if (updateError || !updated) {
-    return {
-      ok: false,
-      message: updateError?.message ?? 'Booking could not be confirmed.',
-    };
-  }
+    .eq('payment_reference', normalizedReference);
 
   return {
     ok: true,
     message: 'Payment verified and booking confirmed.',
+    paymentReceived: true,
     booking: {
       reference_code: updated.reference_code,
       status: updated.status,

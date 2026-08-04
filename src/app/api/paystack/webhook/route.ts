@@ -37,7 +37,21 @@ export async function POST(request: Request) {
   };
 
   if (event.event === 'charge.success' && event.data?.reference) {
-    await verifyAndConfirmPayment(event.data.reference);
+    try {
+      const result = await verifyAndConfirmPayment(event.data.reference);
+
+      if (!result.ok && !result.paymentReceived) {
+        return NextResponse.json(
+          { message: 'Payment confirmation is not complete.' },
+          { status: 503 },
+        );
+      }
+    } catch {
+      return NextResponse.json(
+        { message: 'Payment confirmation is temporarily unavailable.' },
+        { status: 500 },
+      );
+    }
   }
 
   return NextResponse.json({ received: true });
