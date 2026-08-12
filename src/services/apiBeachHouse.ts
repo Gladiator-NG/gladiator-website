@@ -15,6 +15,8 @@ export interface BeachHouse {
   slug: string;
   description: string | null;
   location: string | null;
+  experience_location_id: string | null;
+  arrival_jetty_location_id: string | null;
   address: string | null;
   max_guests: number | null;
   bedrooms: number | null;
@@ -34,10 +36,12 @@ export interface BeachHouse {
   created_at: string;
   updated_at: string;
   images?: BeachHouseImage[];
+  experience_location?: { id: string; name: string } | null;
+  arrival_jetty?: { id: string; name: string } | null;
 }
 
 const BEACH_HOUSE_SELECT =
-  '*, images:beach_house_images!beach_house_images_beach_house_id_fkey(*)';
+  '*, images:beach_house_images!beach_house_images_beach_house_id_fkey(*), experience_location:experience_locations!experience_location_id(id, name), arrival_jetty:locations!arrival_jetty_location_id(id, name)';
 
 function orderImages(beachHouse: BeachHouse): BeachHouse {
   return {

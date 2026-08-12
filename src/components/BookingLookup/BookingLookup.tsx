@@ -6,7 +6,7 @@ import { Button, Card, FormField, TextInput } from '@/components/ui';
 import styles from './bookingLookup.module.css';
 
 const bookingTypeLabels = {
-  boat_cruise: 'Private yacht charter',
+  boat_cruise: 'Yacht cruise',
   beach_house: 'Waterfront stay',
   boat_rental: 'Boat transfer',
 };
@@ -77,7 +77,7 @@ function BookingLookup({ initialReferenceCode = '' }: BookingLookupProps) {
       <div className={`wrap ${styles.panel}`}>
         <div className={styles.copy}>
           <p className={styles.eyebrow}>Booking lookup</p>
-          <h2>Confirm your charter request.</h2>
+          <h2>Confirm your booking.</h2>
           <p>
             Enter your Gladiator reference and the email or phone number used
             for the booking. We only show safe booking details.

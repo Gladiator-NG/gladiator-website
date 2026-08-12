@@ -17,6 +17,7 @@ export interface Boat {
   description: string | null;
   location: string | null;
   pickup_location: string | null;
+  jetty_location_id: string | null;
   max_guests: number | null;
   cabins: number | null;
   boat_type: string | null;
@@ -28,9 +29,11 @@ export interface Boat {
   created_at: string;
   updated_at: string;
   images?: BoatImage[];
+  jetty_location?: { id: string; name: string } | null;
 }
 
-const BOAT_SELECT = '*, images:boat_images!boat_images_boat_id_fkey(*)';
+const BOAT_SELECT =
+  '*, images:boat_images!boat_images_boat_id_fkey(*), jetty_location:locations!jetty_location_id(id, name)';
 
 function orderImages(boat: Boat): Boat {
   return {

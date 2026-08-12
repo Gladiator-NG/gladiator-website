@@ -17,7 +17,7 @@ function Escape() {
           </div>
           <div className={styles.content}>
             <p className={styles.eyebrow}>Stay Beyond Sunset</p>
-            <h2>A private residence, paired with your charter.</h2>
+            <h2>A private residence, paired with your yacht cruise.</h2>
             <p>
               Extend an afternoon on the water into an overnight retreat, with
               your arrival and return coordinated by Gladiator.

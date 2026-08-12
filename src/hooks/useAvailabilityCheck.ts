@@ -7,6 +7,7 @@ import {
   type AvailabilityParams,
 } from '@/services/apiBooking';
 import { fetchSettings } from '@/services/apiSettings';
+import { isWithinOnlineBoatBookingHours } from '@/utils/boatBookingHours';
 
 export type AvailabilityState =
   | { status: 'idle' }
@@ -14,7 +15,12 @@ export type AvailabilityState =
   | { status: 'available' }
   | { status: 'unavailable' }
   | { status: 'error' }
-  | { status: 'curfew'; curfewTime: string };
+  | {
+      status: 'curfew';
+      curfewTime: string;
+      reopenTime: string;
+      whatsappNumber: string;
+    };
 
 export function useAvailabilityCheck(
   params: AvailabilityParams | null,
@@ -33,28 +39,28 @@ export function useAvailabilityCheck(
     staleTime: 5 * 60_000,
   });
 
-  const curfewViolation = useMemo((): string | null => {
+  const curfewViolation = useMemo(() => {
     if (!params || params.resourceType !== 'boat') return null;
     if (!settings?.boat_curfew_enabled || !settings.boat_curfew_time) {
       return null;
     }
 
-    const bookingEndTime = params.endTime ?? params.startTime;
-    if (!bookingEndTime) return null;
+    const withinHours = isWithinOnlineBoatBookingHours({
+      startDate: params.startDate,
+      endDate: params.endDate,
+      startTime: params.startTime ?? null,
+      endTime: params.endTime ?? params.startTime ?? null,
+      opensAt: settings.boat_curfew_reopen_time,
+      closesAt: settings.boat_curfew_time,
+    });
 
-    const toMinutes = (time: string) => {
-      const [hours, minutes] = time.split(':').map(Number);
-      return hours * 60 + minutes;
-    };
-
-    const startMinutes = params.startTime ? toMinutes(params.startTime) : 0;
-    const endMinutes = toMinutes(bookingEndTime);
-    const effectiveEndMinutes =
-      endMinutes < startMinutes ? endMinutes + 24 * 60 : endMinutes;
-
-    return effectiveEndMinutes > toMinutes(settings.boat_curfew_time)
-      ? settings.boat_curfew_time
-      : null;
+    return withinHours
+      ? null
+      : {
+          curfewTime: settings.boat_curfew_time,
+          reopenTime: settings.boat_curfew_reopen_time,
+          whatsappNumber: settings.booking_whatsapp_number,
+        };
   }, [params, settings]);
 
   const { data, isFetching, isError } = useQuery({
@@ -67,7 +73,7 @@ export function useAvailabilityCheck(
   });
 
   if (!enabled) return { status: 'idle' };
-  if (curfewViolation) return { status: 'curfew', curfewTime: curfewViolation };
+  if (curfewViolation) return { status: 'curfew', ...curfewViolation };
   if (isFetching) return { status: 'checking' };
   if (isError) return { status: 'error' };
   if (!data) return { status: 'idle' };

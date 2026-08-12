@@ -36,7 +36,7 @@ function Footer() {
             src="/brand/gladiator-wordmark-design.png"
             width={580}
           />
-          <p>Private charters and secluded waterfront stays in Lagos.</p>
+          <p>Yacht cruises and secluded waterfront stays in Lagos.</p>
         </div>
 
         <nav aria-label="Footer">

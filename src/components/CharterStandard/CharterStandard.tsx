@@ -23,7 +23,7 @@ const standards = [
     number: '04',
     title: 'Seamless arrivals',
     description:
-      'Link your charter, transfer and stay into one effortless itinerary.',
+      'Link your yacht cruise, transfer and stay into one effortless itinerary.',
   },
 ];
 

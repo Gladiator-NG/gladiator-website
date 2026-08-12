@@ -81,7 +81,7 @@ function Hero() {
               }
               transition={{ delay: 1.62, duration: 1.08, ease: 'linear' }}
             >
-              Private coastal charters / Lagos
+              Private yacht cruises / Lagos
             </motion.span>
           </motion.p>
           <h1>
@@ -114,7 +114,7 @@ function Hero() {
             initial={shouldReduceMotion ? false : { opacity: 0, y: 18 }}
             transition={{ delay: 0.62, duration: 0.56, ease: revealEase }}
           >
-            Curated yacht charters, private boat transfers and waterfront stays
+            Curated yacht cruises, private boat transfers and waterfront stays
             for effortless days on the Lagos coast.
           </motion.p>
           <motion.div
@@ -124,7 +124,7 @@ function Hero() {
             transition={{ delay: 0.8, duration: 0.52, ease: revealEase }}
           >
             <ButtonLink href="#plan-charter" size="lg" variant="hero">
-              Plan a charter
+              Plan a yacht cruise
             </ButtonLink>
           </motion.div>
         </div>
@@ -136,7 +136,7 @@ function Hero() {
           initial={shouldReduceMotion ? false : { opacity: 0, y: 18 }}
           transition={{ delay: 0.98, duration: 0.52, ease: revealEase }}
         >
-          <span>Yacht charters</span>
+          <span>Yacht cruises</span>
           <span>Boat transfers</span>
           <span>Private stays</span>
         </motion.div>

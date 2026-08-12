@@ -8,11 +8,11 @@ export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   applicationName: 'Gladiator',
   title: {
-    default: 'Gladiator | Private Charters & Waterfront Stays',
+    default: 'Gladiator | Yacht Cruises & Waterfront Stays',
     template: '%s | Gladiator',
   },
   description:
-    'Private yacht charters, tailored boat transfers, and secluded waterfront stays in Lagos, curated by Gladiator.',
+    'Curated yacht cruises, tailored boat transfers, and secluded waterfront stays in Lagos by Gladiator.',
   manifest: '/site.webmanifest',
   appleWebApp: {
     capable: true,
@@ -22,16 +22,16 @@ export const metadata: Metadata = {
   openGraph: {
     siteName: 'Gladiator',
     type: 'website',
-    title: 'Gladiator | Private Charters & Waterfront Stays',
+    title: 'Gladiator | Yacht Cruises & Waterfront Stays',
     description:
-      'Private yacht charters, tailored boat transfers, and secluded waterfront stays in Lagos, curated by Gladiator.',
+      'Curated yacht cruises, tailored boat transfers, and secluded waterfront stays in Lagos by Gladiator.',
     images: ['/gladiator_icon.png'],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Gladiator | Private Charters & Waterfront Stays',
+    title: 'Gladiator | Yacht Cruises & Waterfront Stays',
     description:
-      'Private yacht charters, tailored boat transfers, and secluded waterfront stays in Lagos, curated by Gladiator.',
+      'Curated yacht cruises, tailored boat transfers, and secluded waterfront stays in Lagos by Gladiator.',
     images: ['/gladiator_icon.png'],
   },
   icons: {

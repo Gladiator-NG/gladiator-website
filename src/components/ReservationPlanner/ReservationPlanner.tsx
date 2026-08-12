@@ -7,6 +7,7 @@ import { useAvailabilityCheck } from '@/hooks/useAvailabilityCheck';
 import { useBeachHouses } from '@/hooks/useBeachHouses';
 import { useBoats, useRentalBoats } from '@/hooks/useBoats';
 import { useLocations } from '@/hooks/useLocations';
+import { useExperienceLocations } from '@/hooks/useExperienceLocations';
 import { useTransportRoutes } from '@/hooks/useTransportRoutes';
 import {
   ArrowIcon,
@@ -28,13 +29,14 @@ import type {
 } from '@/services/apiBooking';
 import { initializeBookingPayment } from '@/services/apiBooking';
 import type { Boat } from '@/services/apiBoat';
+import { formatBookingTime } from '@/utils/boatBookingHours';
 import styles from './reservationPlanner.module.css';
 
 type Experience = BookingType;
 type Listing = Boat | BeachHouse;
 
 const experienceLabels: Record<Experience, string> = {
-  boat_cruise: 'Private yachts',
+  boat_cruise: 'Yacht cruises',
   beach_house: 'Waterfront stays',
   boat_rental: 'Boat transfers',
 };
@@ -87,6 +89,11 @@ function isBoat(listing: Listing): listing is Boat {
   return 'boat_type' in listing;
 }
 
+function whatsappBookingUrl(number: string, message: string) {
+  const digits = number.replace(/\D/g, '');
+  return `https://wa.me/${digits}?text=${encodeURIComponent(message)}`;
+}
+
 function ReservationPlanner() {
   const [experience, setExperience] = useState<Experience>('boat_cruise');
   const [location, setLocation] = useState('');
@@ -134,6 +141,7 @@ function ReservationPlanner() {
     error: houseError,
   } = useBeachHouses();
   const { locations } = useLocations();
+  const { experienceLocations } = useExperienceLocations();
   const { routes, isLoading: routesLoading } = useTransportRoutes();
 
   const assets: Listing[] = useMemo(() => {
@@ -143,10 +151,26 @@ function ReservationPlanner() {
 
   const filteredAssets = assets.filter((asset) => {
     if (!location) return true;
+    if (experience === 'boat_rental') return true;
     if (isBoat(asset)) {
-      return asset.pickup_location === location || asset.location === location;
+      return asset.jetty_location_id === location;
     }
-    return asset.location === location;
+    return asset.experience_location_id === location;
+  });
+
+  const filterLocations =
+    experience === 'beach_house' ? experienceLocations : locations;
+  const filterLabel =
+    experience === 'beach_house'
+      ? 'Experience location'
+      : experience === 'boat_cruise'
+        ? 'Boarding jetty'
+        : 'Route jetty';
+  const filteredRoutes = routes.filter((route) => {
+    if (experience !== 'boat_rental' || !location) return true;
+    return (
+      route.from_location_id === location || route.to_location_id === location
+    );
   });
 
   const selectedAsset = assets.find((asset) => asset.id === assetId);
@@ -449,14 +473,28 @@ function ReservationPlanner() {
           <p className={styles.eyebrow}>Book Your Escape</p>
           <h2>Find an available experience</h2>
         </div>
-        <FormField label="Location">
+        <FormField label={filterLabel}>
           <SelectInput
             value={location}
-            onChange={(event) => setLocation(event.target.value)}
+            onChange={(event) => {
+              setLocation(event.target.value);
+              setAssetId('');
+              setRouteId('');
+              resetOutcome();
+            }}
           >
-            <option value="">All Lagos destinations</option>
-            {locations.map((place) => (
-              <option key={place.id} value={place.name}>
+            <option value="">
+              {experience === 'beach_house'
+                ? 'All waterfront destinations'
+                : experience === 'boat_cruise'
+                  ? 'All boarding jetties'
+                  : 'All transfer jetties'}
+            </option>
+            {filterLocations.map((place) => (
+              <option
+                key={place.id}
+                value={place.id}
+              >
                 {place.name}
               </option>
             ))}
@@ -582,8 +620,8 @@ function ReservationPlanner() {
                         <p>
                           {boat ? listing.boat_type : 'Private residence'} |{' '}
                           {boat
-                            ? listing.pickup_location || listing.location
-                            : listing.location}
+                            ? listing.jetty_location?.name || listing.pickup_location || listing.location
+                            : listing.experience_location?.name || listing.location}
                         </p>
                         <h3>{listing.name}</h3>
                       </div>
@@ -629,13 +667,15 @@ function ReservationPlanner() {
                       ? 'Waterfront stay'
                       : experience === 'boat_rental'
                         ? 'Private transfer'
-                        : 'Private charter'}
+                        : 'Yacht cruise'}
                   </p>
                   <h2>{selectedAsset.name}</h2>
                   <span>
                     Up to {selectedAsset.max_guests ?? '-'} guests
                     {' | '}
-                    {selectedAsset.location}
+                    {isBoat(selectedAsset)
+                      ? selectedAsset.jetty_location?.name || selectedAsset.pickup_location || selectedAsset.location
+                      : selectedAsset.experience_location?.name || selectedAsset.location}
                   </span>
                 </div>
 
@@ -682,7 +722,7 @@ function ReservationPlanner() {
                           <option value="">
                             {routesLoading ? 'Loading routes...' : 'Select route'}
                           </option>
-                          {routes.map((route) => (
+                          {filteredRoutes.map((route) => (
                             <option key={route.id} value={route.id}>
                               {route.from_location?.name} to{' '}
                               {route.to_location?.name}
@@ -945,9 +985,25 @@ function ReservationPlanner() {
                     </p>
                   )}
                   {availability.status === 'curfew' && (
-                    <p className={styles.notice}>
-                      Boat operations conclude by {availability.curfewTime}.
-                    </p>
+                    <div className={styles.afterHours}>
+                      <p>
+                        Online booking is available from{' '}
+                        {formatBookingTime(availability.reopenTime)} to{' '}
+                        {formatBookingTime(availability.curfewTime)}. This trip
+                        falls outside those hours, but our team can still help
+                        you book it.
+                      </p>
+                      <a
+                        href={whatsappBookingUrl(
+                          availability.whatsappNumber,
+                          `Hi Gladiator, I'd like help booking ${selectedAsset.name} for ${date} outside the online booking hours.`,
+                        )}
+                        rel="noreferrer"
+                        target="_blank"
+                      >
+                        Continue on WhatsApp
+                      </a>
+                    </div>
                   )}
                   {availability.status === 'error' && (
                     <p className={styles.notice}>

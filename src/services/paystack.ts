@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import type { CreateBookingInput } from './apiBooking';
 import { getSupabaseServerClient } from './supabaseServer';
+import { isWithinOnlineBoatBookingHours } from '@/utils/boatBookingHours';
 
 const PAYSTACK_BASE_URL = 'https://api.paystack.co';
 const DEFAULT_CURRENCY = 'NGN';
@@ -136,6 +137,46 @@ function addHours(time: string, hours: number) {
   const nextMinutes = totalMinutes % 60;
 
   return `${String(nextHours).padStart(2, '0')}:${String(nextMinutes).padStart(2, '0')}`;
+}
+
+async function ensureWithinOnlineBoatBookingHours(
+  input: CreateBookingInput,
+  endTime: string,
+) {
+  const supabase = getSupabaseServerClient();
+  const { data, error } = await supabase
+    .from('app_settings')
+    .select('key, value')
+    .in('key', [
+      'boat_curfew_enabled',
+      'boat_curfew_time',
+      'boat_curfew_reopen_time',
+    ]);
+
+  if (error) return;
+
+  const settings = Object.fromEntries(
+    (data ?? []).map((row) => [row.key, row.value]),
+  );
+  const closesAt = settings.boat_curfew_time;
+  const opensAt = settings.boat_curfew_reopen_time || '08:00';
+
+  if (settings.boat_curfew_enabled !== 'true' || !closesAt) return;
+
+  const withinHours = isWithinOnlineBoatBookingHours({
+    startDate: input.start_date,
+    endDate: input.end_date,
+    startTime: input.start_time ?? null,
+    endTime,
+    opensAt,
+    closesAt,
+  });
+
+  if (!withinHours) {
+    throw new Error(
+      'Online booking is closed for this time. Please contact us on WhatsApp for assistance.',
+    );
+  }
 }
 
 function paymentReference() {
@@ -280,10 +321,11 @@ async function quoteBooking(input: CreateBookingInput): Promise<BookingQuote> {
       hours < (boat.min_booking_hours ?? 1) ||
       (boat.max_booking_hours != null && hours > boat.max_booking_hours)
     ) {
-      throw new Error('Please choose valid charter details.');
+      throw new Error('Please choose valid yacht cruise details.');
     }
 
     const endTime = addHours(input.start_time, hours);
+    await ensureWithinOnlineBoatBookingHours(input, endTime);
     const { data: available, error: availabilityError } = await supabase.rpc(
       'check_public_availability',
       {
@@ -350,6 +392,7 @@ async function quoteBooking(input: CreateBookingInput): Promise<BookingQuote> {
     const multiplier = input.rental_type === 'round_trip' ? 2 : 1;
     const hours = Number(route.duration_hours ?? 1) * multiplier;
     const endTime = input.end_time ?? addHours(input.start_time, hours);
+    await ensureWithinOnlineBoatBookingHours(input, endTime);
     const { data: available, error: availabilityError } = await supabase.rpc(
       'check_public_availability',
       {
