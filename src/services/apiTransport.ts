@@ -21,6 +21,15 @@ export interface TransportRoute {
   updated_at: string;
   from_location?: Pick<Location, 'id' | 'name'> | null;
   to_location?: Pick<Location, 'id' | 'name'> | null;
+  boat_prices?: BoatTransferPrice[];
+}
+
+export interface BoatTransferPrice {
+  id: string;
+  boat_id: string;
+  route_id: string;
+  price: number;
+  is_active: boolean;
 }
 
 export async function getLocations(): Promise<Location[]> {
@@ -39,24 +48,10 @@ export async function getTransportRoutes(): Promise<TransportRoute[]> {
   const { data, error } = await getSupabaseClient()
     .from('transport_routes')
     .select(
-      '*, from_location:locations!from_location_id(id, name), to_location:locations!to_location_id(id, name)',
+      '*, from_location:locations!from_location_id(id, name), to_location:locations!to_location_id(id, name), boat_prices:boat_transfer_prices!route_id(id, boat_id, route_id, price, is_active)',
     )
     .eq('is_active', true);
 
   if (error) throw new Error(error.message);
   return (data ?? []) as TransportRoute[];
-}
-
-export function findRoutePrice(
-  routes: TransportRoute[],
-  fromLocation: string,
-  toLocation: string,
-): number | null {
-  const route = routes.find(
-    (item) =>
-      item.from_location?.name === fromLocation &&
-      item.to_location?.name === toLocation,
-  );
-
-  return route?.route_price ?? null;
 }

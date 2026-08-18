@@ -25,10 +25,10 @@ import type {
   BeachHouseBookingMode,
   BookingType,
   CreateBookingInput,
-  RentalType,
 } from '@/services/apiBooking';
 import { initializeBookingPayment } from '@/services/apiBooking';
 import type { Boat } from '@/services/apiBoat';
+import { findBoatRoutePrice } from '@/utils/transferPricing';
 import { formatBookingTime } from '@/utils/boatBookingHours';
 import styles from './reservationPlanner.module.css';
 
@@ -100,8 +100,6 @@ function ReservationPlanner() {
   const [assetId, setAssetId] = useState('');
   const [date, setDate] = useState('');
   const [endDate, setEndDate] = useState('');
-  const [returnDate, setReturnDate] = useState('');
-  const [returnTime, setReturnTime] = useState('17:00');
   const [startTime, setStartTime] = useState('11:00');
   const [checkOutTime, setCheckOutTime] = useState('11:00');
   const [duration, setDuration] = useState(3);
@@ -109,7 +107,6 @@ function ReservationPlanner() {
   const [stayMode, setStayMode] =
     useState<BeachHouseBookingMode>('overnight');
   const [routeId, setRouteId] = useState('');
-  const [rentalType, setRentalType] = useState<RentalType>('outbound');
   const [isBeachHouseTransfer, setIsBeachHouseTransfer] = useState(false);
   const [beachHouseBookingReference, setBeachHouseBookingReference] =
     useState('');
@@ -167,10 +164,13 @@ function ReservationPlanner() {
         ? 'Boarding jetty'
         : 'Route jetty';
   const filteredRoutes = routes.filter((route) => {
-    if (experience !== 'boat_rental' || !location) return true;
-    return (
-      route.from_location_id === location || route.to_location_id === location
+    if (experience !== 'boat_rental') return true;
+    const hasBoatPrice = route.boat_prices?.some(
+      (price) => price.boat_id === assetId && price.is_active,
     );
+    if (!hasBoatPrice) return false;
+    if (!location) return true;
+    return route.from_location_id === location;
   });
 
   const selectedAsset = assets.find((asset) => asset.id === assetId);
@@ -206,23 +206,14 @@ function ReservationPlanner() {
     minimumDuration,
     Math.min(duration, maximumDuration ?? duration),
   );
-  const tripMultiplier = rentalType === 'round_trip' ? 2 : 1;
   const oneWayTransferHours = selectedRoute?.duration_hours ?? 1;
-  const transferHours = oneWayTransferHours * tripMultiplier;
   const endTime =
     experience === 'boat_rental'
-      ? rentalType === 'round_trip'
-        ? returnTime
-        : addHours(startTime, oneWayTransferHours)
+      ? addHours(startTime, oneWayTransferHours)
       : experience === 'beach_house' && stayMode === 'overnight'
         ? checkOutTime
       : addHours(startTime, durationUsed);
-  const bookingEndDate =
-    experience === 'boat_rental' && rentalType === 'round_trip'
-      ? returnDate
-      : experience === 'beach_house'
-        ? endDate
-        : date;
+  const bookingEndDate = experience === 'beach_house' ? endDate : date;
   const stayNights = nightsBetween(date, endDate);
   const extraGuestCount =
     experience === 'beach_house' && selectedHouse?.max_guests != null
@@ -239,9 +230,7 @@ function ReservationPlanner() {
     }
 
     if (experience === 'boat_rental') {
-      return selectedRoute?.route_price
-        ? selectedRoute.route_price * tripMultiplier
-        : null;
+      return findBoatRoutePrice(selectedRoute, selectedBoat?.id ?? '');
     }
 
     if (stayMode === 'day_use') {
@@ -283,7 +272,6 @@ function ReservationPlanner() {
     setAssetId('');
     setLocation('');
     setRouteId('');
-    setReturnDate('');
     setIsBeachHouseTransfer(false);
     setBeachHouseBookingReference('');
     setCheckOutTime('11:00');
@@ -366,20 +354,13 @@ function ReservationPlanner() {
       if (isBeachHouseTransfer && !beachHouseBookingReference.trim()) {
         return null;
       }
-      if (rentalType === 'round_trip') {
-        if (!returnDate || !returnTime || returnDate < date) return null;
-        if (returnDate === date && returnTime <= startTime) return null;
-      }
     }
 
     return {
       resourceType: experience === 'beach_house' ? 'beach_house' : 'boat',
       resourceId: selectedAsset.id,
       startDate: date,
-      endDate:
-        experience === 'boat_rental' && rentalType === 'round_trip'
-          ? returnDate
-          : date,
+      endDate: date,
       startTime,
       endTime,
     } satisfies AvailabilityParams;
@@ -419,9 +400,9 @@ function ReservationPlanner() {
         experience === 'beach_house' && stayMode === 'overnight'
           ? null
           : experience === 'boat_rental'
-            ? transferHours
+            ? null
             : durationUsed,
-      rental_type: experience === 'boat_rental' ? rentalType : null,
+      rental_type: experience === 'boat_rental' ? 'outbound' : null,
       rental_route_id: experience === 'boat_rental' ? routeId : null,
       parent_beach_house_booking_reference:
         experience === 'boat_rental' && isBeachHouseTransfer
@@ -730,19 +711,6 @@ function ReservationPlanner() {
                           ))}
                         </SelectInput>
                       </FormField>
-                      <FormField className={styles.full} label="Journey">
-                        <SelectInput
-                          value={rentalType}
-                          onChange={(event) => {
-                            setRentalType(event.target.value as RentalType);
-                            if (!returnDate) setReturnDate(date);
-                            resetOutcome();
-                          }}
-                        >
-                          <option value="outbound">One way</option>
-                          <option value="round_trip">Round trip</option>
-                        </SelectInput>
-                      </FormField>
                       <div className={styles.full}>
                         <label className={styles.checkboxField}>
                           <input
@@ -798,13 +766,6 @@ function ReservationPlanner() {
                       min={minimumDate}
                       onChange={(event) => {
                         setDate(event.target.value);
-                        if (
-                          experience === 'boat_rental' &&
-                          rentalType === 'round_trip' &&
-                          (!returnDate || returnDate < event.target.value)
-                        ) {
-                          setReturnDate(event.target.value);
-                        }
                         resetOutcome();
                       }}
                       required
@@ -869,34 +830,6 @@ function ReservationPlanner() {
                       </>
                     )}
 
-                  {experience === 'boat_rental' &&
-                    rentalType === 'round_trip' && (
-                      <>
-                        <FormField label="Return date">
-                          <TextInput
-                            min={date || minimumDate}
-                            onChange={(event) => {
-                              setReturnDate(event.target.value);
-                              resetOutcome();
-                            }}
-                            required
-                            type="date"
-                            value={returnDate}
-                          />
-                        </FormField>
-                        <FormField label="Return time">
-                          <TextInput
-                            onChange={(event) => {
-                              setReturnTime(event.target.value);
-                              resetOutcome();
-                            }}
-                            required
-                            type="time"
-                            value={returnTime}
-                          />
-                        </FormField>
-                      </>
-                    )}
 
                   <FormField label="Total guests">
                     <TextInput
@@ -958,14 +891,6 @@ function ReservationPlanner() {
                           {extraGuestCount > 0
                             ? ` · ${extraGuestCount} extra guest${extraGuestCount === 1 ? '' : 's'}`
                             : ''}
-                        </small>
-                      )}
-                    {experience === 'boat_rental' &&
-                      rentalType === 'round_trip' &&
-                      returnDate &&
-                      returnTime && (
-                        <small>
-                          Return pickup: {returnDate} at {returnTime}
                         </small>
                       )}
                   </div>

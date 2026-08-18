@@ -73,10 +73,16 @@ type BeachHouseQuoteRecord = {
 };
 
 type RouteQuoteRecord = {
+  from_location_id: string;
   id: string;
   duration_hours: number | null;
   is_active: boolean;
-  route_price: number | null;
+  to_location_id: string;
+  boat_prices: Array<{
+    boat_id: string;
+    is_active: boolean;
+    price: number;
+  }>;
 };
 
 type BookingQuote = {
@@ -371,7 +377,9 @@ async function quoteBooking(input: CreateBookingInput): Promise<BookingQuote> {
 
     const { data: routeData, error: routeError } = await supabase
       .from('transport_routes')
-      .select('id, duration_hours, is_active, route_price')
+      .select(
+        'id, from_location_id, to_location_id, duration_hours, is_active, boat_prices:boat_transfer_prices!route_id(boat_id, is_active, price)',
+      )
       .eq('id', input.rental_route_id)
       .eq('is_active', true)
       .single();
@@ -384,13 +392,67 @@ async function quoteBooking(input: CreateBookingInput): Promise<BookingQuote> {
       throw new Error('Please choose valid transfer details.');
     }
 
+    if (input.rental_type === 'round_trip') {
+      throw new Error(
+        'Round-trip transfers are no longer offered. Please book each directional transfer separately.',
+      );
+    }
+
     if (guestCount > (boat.max_guests ?? guestCount)) {
       throw new Error('The guest count exceeds this vessel capacity.');
     }
 
     const route = routeData as RouteQuoteRecord;
-    const multiplier = input.rental_type === 'round_trip' ? 2 : 1;
-    const hours = Number(route.duration_hours ?? 1) * multiplier;
+    const transferPrice = route.boat_prices.find(
+      (price) => price.boat_id === boat.id && price.is_active,
+    );
+    if (!transferPrice) {
+      throw new Error('That vessel is not priced for the selected transfer route.');
+    }
+
+    const parentReference =
+      input.parent_beach_house_booking_reference?.trim().toUpperCase();
+    if (parentReference) {
+      const { data: stayData, error: stayError } = await supabase
+        .from('bookings')
+        .select(
+          'booking_type, status, beach_house:beach_houses!beach_house_id(arrival_jetty_location_id)',
+        )
+        .ilike('reference_code', parentReference)
+        .maybeSingle();
+      const stay = stayData as
+        | {
+            booking_type: string;
+            status: string;
+            beach_house:
+              | { arrival_jetty_location_id: string | null }
+              | Array<{ arrival_jetty_location_id: string | null }>
+              | null;
+          }
+        | null;
+      const house = Array.isArray(stay?.beach_house)
+        ? stay.beach_house[0]
+        : stay?.beach_house;
+      if (
+        stayError ||
+        !stay ||
+        stay.booking_type !== 'beach_house' ||
+        ['cancelled', 'expired'].includes(stay.status) ||
+        !house?.arrival_jetty_location_id
+      ) {
+        throw new Error('Please provide a valid active waterfront stay booking number.');
+      }
+      if (
+        route.from_location_id !== house.arrival_jetty_location_id &&
+        route.to_location_id !== house.arrival_jetty_location_id
+      ) {
+        throw new Error(
+          'Please choose a transfer route connected to the waterfront stay.',
+        );
+      }
+    }
+
+    const hours = Number(route.duration_hours ?? 1);
     const endTime = input.end_time ?? addHours(input.start_time, hours);
     await ensureWithinOnlineBoatBookingHours(input, endTime);
     const { data: available, error: availabilityError } = await supabase.rpc(
@@ -412,7 +474,7 @@ async function quoteBooking(input: CreateBookingInput): Promise<BookingQuote> {
 
     return {
       currency: DEFAULT_CURRENCY,
-      totalAmount: Number(route.route_price ?? 0) * multiplier,
+      totalAmount: Number(transferPrice.price),
     };
   }
 
@@ -755,15 +817,32 @@ export async function verifyAndConfirmPayment(
     };
   }
 
-  const { data: created, error: createError } = await supabase.rpc(
-    'confirm_public_booking_payment',
-    {
-      ...publicBookingRpcPayload(input),
-      p_currency: quotedCurrency,
-      p_expected_total: quotedAmount,
-      p_payment_reference: normalizedReference,
-    },
-  );
+  const confirmation =
+    input.booking_type === 'boat_rental'
+      ? await supabase.rpc('confirm_public_boat_transfer_payment', {
+          p_asset_id: input.boat_id,
+          p_currency: quotedCurrency,
+          p_customer_email: input.customer_email,
+          p_customer_name: input.customer_name,
+          p_customer_phone: input.customer_phone ?? '',
+          p_expected_total: quotedAmount,
+          p_guest_count: input.guest_count ?? 1,
+          p_notes: input.notes ?? null,
+          p_parent_beach_house_booking_reference:
+            input.parent_beach_house_booking_reference ?? null,
+          p_payment_reference: normalizedReference,
+          p_rental_route_id: input.rental_route_id ?? null,
+          p_rental_type: input.rental_type ?? 'outbound',
+          p_start_date: input.start_date,
+          p_start_time: input.start_time ?? null,
+        })
+      : await supabase.rpc('confirm_public_booking_payment', {
+          ...publicBookingRpcPayload(input),
+          p_currency: quotedCurrency,
+          p_expected_total: quotedAmount,
+          p_payment_reference: normalizedReference,
+        });
+  const { data: created, error: createError } = confirmation;
 
   if (createError || !created) {
     await supabase
