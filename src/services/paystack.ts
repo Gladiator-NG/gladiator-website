@@ -212,6 +212,7 @@ function paymentRequestKey(input: CreateBookingInput, quote: BookingQuote) {
     hours: input.hours ?? null,
     parent_beach_house_booking_reference:
       input.parent_beach_house_booking_reference?.trim().toUpperCase() ?? null,
+    pickup_location_id: input.pickup_location_id ?? null,
     quoted_amount: quote.totalAmount,
     rental_route_id: input.rental_route_id ?? null,
     rental_type: input.rental_type ?? null,
@@ -255,6 +256,7 @@ function publicBookingRpcPayload(input: CreateBookingInput) {
     p_hours: input.hours ?? null,
     p_rental_type: input.rental_type ?? null,
     p_rental_route_id: input.rental_route_id ?? null,
+    p_pickup_location_id: input.pickup_location_id ?? null,
     p_notes: input.notes ?? null,
     ...(input.parent_beach_house_booking_reference
       ? {
@@ -328,6 +330,17 @@ async function quoteBooking(input: CreateBookingInput): Promise<BookingQuote> {
       (boat.max_booking_hours != null && hours > boat.max_booking_hours)
     ) {
       throw new Error('Please choose valid yacht cruise details.');
+    }
+
+    const { data: jetty, error: jettyError } = await supabase
+      .from('locations')
+      .select('id')
+      .eq('id', input.pickup_location_id)
+      .eq('is_active', true)
+      .maybeSingle();
+
+    if (jettyError || !jetty) {
+      throw new Error('Please choose an available pickup jetty.');
     }
 
     const endTime = addHours(input.start_time, hours);

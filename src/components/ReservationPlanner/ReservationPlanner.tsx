@@ -105,8 +105,9 @@ function ReservationPlanner() {
   const [duration, setDuration] = useState(3);
   const [guests, setGuests] = useState(2);
   const [stayMode, setStayMode] =
-    useState<BeachHouseBookingMode>('overnight');
+    useState<BeachHouseBookingMode>('day_use');
   const [routeId, setRouteId] = useState('');
+  const [pickupJettyId, setPickupJettyId] = useState('');
   const [isBeachHouseTransfer, setIsBeachHouseTransfer] = useState(false);
   const [beachHouseBookingReference, setBeachHouseBookingReference] =
     useState('');
@@ -146,12 +147,12 @@ function ReservationPlanner() {
     return experience === 'boat_rental' ? rentalBoats : boats;
   }, [beachHouses, boats, experience, rentalBoats]);
 
+  // Boats are not tied to a jetty — they can operate from any of them — so
+  // only beach houses are filtered by location here. Cruise customers choose
+  // their pickup jetty on the booking form instead.
   const filteredAssets = assets.filter((asset) => {
     if (!location) return true;
-    if (experience === 'boat_rental') return true;
-    if (isBoat(asset)) {
-      return asset.jetty_location_id === location;
-    }
+    if (isBoat(asset)) return true;
     return asset.experience_location_id === location;
   });
 
@@ -161,7 +162,7 @@ function ReservationPlanner() {
     experience === 'beach_house'
       ? 'Experience location'
       : experience === 'boat_cruise'
-        ? 'Boarding jetty'
+        ? 'Pickup jetty'
         : 'Route jetty';
   const filteredRoutes = routes.filter((route) => {
     if (experience !== 'boat_rental') return true;
@@ -349,6 +350,8 @@ function ReservationPlanner() {
       };
     }
 
+    if (experience === 'boat_cruise' && !pickupJettyId) return null;
+
     if (experience === 'boat_rental') {
       if (!selectedRoute) return null;
       if (isBeachHouseTransfer && !beachHouseBookingReference.trim()) {
@@ -408,10 +411,14 @@ function ReservationPlanner() {
         experience === 'boat_rental' && isBeachHouseTransfer
           ? beachHouseBookingReference.trim()
           : null,
+      pickup_location_id:
+        experience === 'boat_cruise' ? pickupJettyId || null : null,
       pickup_location:
         experience === 'boat_rental'
           ? selectedRoute?.from_location?.name
-          : selectedBoat?.pickup_location,
+          : experience === 'boat_cruise'
+            ? locations.find((place) => place.id === pickupJettyId)?.name
+            : null,
       dropoff_location:
         experience === 'boat_rental' ? selectedRoute?.to_location?.name : null,
       total_amount: estimatedTotal,
@@ -454,33 +461,33 @@ function ReservationPlanner() {
           <p className={styles.eyebrow}>Book Your Escape</p>
           <h2>Find an available experience</h2>
         </div>
-        <FormField label={filterLabel}>
-          <SelectInput
-            value={location}
-            onChange={(event) => {
-              setLocation(event.target.value);
-              setAssetId('');
-              setRouteId('');
-              resetOutcome();
-            }}
-          >
-            <option value="">
-              {experience === 'beach_house'
-                ? 'All waterfront destinations'
-                : experience === 'boat_cruise'
-                  ? 'All boarding jetties'
+        {experience !== 'boat_cruise' && (
+          <FormField label={filterLabel}>
+            <SelectInput
+              value={location}
+              onChange={(event) => {
+                setLocation(event.target.value);
+                setAssetId('');
+                setRouteId('');
+                resetOutcome();
+              }}
+            >
+              <option value="">
+                {experience === 'beach_house'
+                  ? 'All waterfront destinations'
                   : 'All transfer jetties'}
-            </option>
-            {filterLocations.map((place) => (
-              <option
-                key={place.id}
-                value={place.id}
-              >
-                {place.name}
               </option>
-            ))}
-          </SelectInput>
-        </FormField>
+              {filterLocations.map((place) => (
+                <option
+                  key={place.id}
+                  value={place.id}
+                >
+                  {place.name}
+                </option>
+              ))}
+            </SelectInput>
+          </FormField>
+        )}
       </div>
 
       <div className="wrap" id="listings">
@@ -525,8 +532,10 @@ function ReservationPlanner() {
                   experience === 'boat_rental'
                     ? 'Route pricing shown after selection'
                     : boat
-                  ? `${currency(listing.price_per_hour)} / hour`
-                  : `${currency(listing.price_per_night)} / night`;
+                      ? `${currency(listing.price_per_hour)} / hour`
+                      : stayMode === 'overnight'
+                        ? `${currency(listing.price_per_night)} / night`
+                        : `${currency(listing.day_use_price_per_hour)} / hour`;
 
                 return (
                   <Card
@@ -655,12 +664,32 @@ function ReservationPlanner() {
                     Up to {selectedAsset.max_guests ?? '-'} guests
                     {' | '}
                     {isBoat(selectedAsset)
-                      ? selectedAsset.jetty_location?.name || selectedAsset.pickup_location || selectedAsset.location
+                      ? selectedAsset.boat_type || 'Private vessel'
                       : selectedAsset.experience_location?.name || selectedAsset.location}
                   </span>
                 </div>
 
                 <form className={styles.schedule} onSubmit={handleAvailability}>
+                  {experience === 'boat_cruise' && (
+                    <FormField className={styles.full} label="Pickup jetty">
+                      <SelectInput
+                        onChange={(event) => {
+                          setPickupJettyId(event.target.value);
+                          resetOutcome();
+                        }}
+                        required
+                        value={pickupJettyId}
+                      >
+                        <option value="">Select a pickup jetty…</option>
+                        {locations.map((place) => (
+                          <option key={place.id} value={place.id}>
+                            {place.name}
+                          </option>
+                        ))}
+                      </SelectInput>
+                    </FormField>
+                  )}
+
                   {experience === 'beach_house' && (
                     <FormField className={styles.full} label="Stay type">
                       <SelectInput

@@ -63,6 +63,7 @@ export interface CreateBookingInput {
   late_checkout_hours?: number | null;
   rental_type?: RentalType | null;
   rental_route_id?: string | null;
+  pickup_location_id?: string | null;
   pickup_location?: string | null;
   dropoff_location?: string | null;
   total_amount: number;
