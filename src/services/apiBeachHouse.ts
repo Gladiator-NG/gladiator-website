@@ -21,13 +21,8 @@ export interface BeachHouse {
   max_guests: number | null;
   bedrooms: number | null;
   bathrooms: number | null;
-  price_per_night: number | null;
-  day_use_price_per_hour: number | null;
-  day_use_min_hours: number | null;
-  day_use_max_hours: number | null;
-  check_in_time: string | null;
-  check_out_time: string | null;
-  late_checkout_price_per_hour: number | null;
+  day_rate: number | null;
+  overnight_rate: number | null;
   extra_guest_fee_per_head: number | null;
   amenities: string[];
   is_active: boolean;

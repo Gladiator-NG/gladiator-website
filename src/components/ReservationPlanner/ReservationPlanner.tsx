@@ -29,6 +29,10 @@ import type {
 import { initializeBookingPayment } from '@/services/apiBooking';
 import type { Boat } from '@/services/apiBoat';
 import { findBoatRoutePrice } from '@/utils/transferPricing';
+import {
+  BEACH_HOUSE_WINDOWS,
+  beachHousePriceBreakdown,
+} from '@/utils/beachHousePricing';
 import { formatBookingTime } from '@/utils/boatBookingHours';
 import styles from './reservationPlanner.module.css';
 
@@ -47,6 +51,11 @@ const experienceTabs = Object.entries(experienceLabels).map(
     value: value as Experience,
   }),
 );
+
+const { start: DAY_BOOKING_START, end: DAY_BOOKING_END } =
+  BEACH_HOUSE_WINDOWS.day_use;
+const { start: OVERNIGHT_BOOKING_START, end: OVERNIGHT_BOOKING_END } =
+  BEACH_HOUSE_WINDOWS.overnight;
 
 function addHours(time: string, duration: number) {
   const [hours, minutes] = time.split(':').map(Number);
@@ -101,7 +110,6 @@ function ReservationPlanner() {
   const [date, setDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [startTime, setStartTime] = useState('11:00');
-  const [checkOutTime, setCheckOutTime] = useState('11:00');
   const [duration, setDuration] = useState(3);
   const [guests, setGuests] = useState(2);
   const [stayMode, setStayMode] =
@@ -195,14 +203,8 @@ function ReservationPlanner() {
         : houseError;
 
   const minimumDate = new Date().toISOString().slice(0, 10);
-  const minimumDuration =
-    experience === 'beach_house' && stayMode === 'day_use'
-      ? selectedHouse?.day_use_min_hours ?? 1
-      : selectedBoat?.min_booking_hours ?? 1;
-  const maximumDuration =
-    experience === 'beach_house' && stayMode === 'day_use'
-      ? selectedHouse?.day_use_max_hours ?? undefined
-      : selectedBoat?.max_booking_hours ?? undefined;
+  const minimumDuration = selectedBoat?.min_booking_hours ?? 1;
+  const maximumDuration = selectedBoat?.max_booking_hours ?? undefined;
   const durationUsed = Math.max(
     minimumDuration,
     Math.min(duration, maximumDuration ?? duration),
@@ -211,8 +213,10 @@ function ReservationPlanner() {
   const endTime =
     experience === 'boat_rental'
       ? addHours(startTime, oneWayTransferHours)
-      : experience === 'beach_house' && stayMode === 'overnight'
-        ? checkOutTime
+      : experience === 'beach_house'
+        ? stayMode === 'day_use'
+          ? DAY_BOOKING_END
+          : OVERNIGHT_BOOKING_END
       : addHours(startTime, durationUsed);
   const bookingEndDate = experience === 'beach_house' ? endDate : date;
   const stayNights = nightsBetween(date, endDate);
@@ -222,6 +226,17 @@ function ReservationPlanner() {
       : 0;
   const extraGuestCharge =
     extraGuestCount * (selectedHouse?.extra_guest_fee_per_head ?? 0);
+  const housePriceBreakdown =
+    experience === 'beach_house'
+      ? beachHousePriceBreakdown(
+          stayMode,
+          {
+            dayRate: selectedHouse?.day_rate ?? null,
+            overnightRate: selectedHouse?.overnight_rate ?? null,
+          },
+          stayMode === 'overnight' ? stayNights : 1,
+        )
+      : null;
 
   const estimatedTotal = (() => {
     if (experience === 'boat_cruise') {
@@ -234,15 +249,9 @@ function ReservationPlanner() {
       return findBoatRoutePrice(selectedRoute, selectedBoat?.id ?? '');
     }
 
-    if (stayMode === 'day_use') {
-      return selectedHouse?.day_use_price_per_hour
-        ? selectedHouse.day_use_price_per_hour * durationUsed + extraGuestCharge
-        : null;
-    }
-
-    return selectedHouse?.price_per_night && stayNights > 0
-      ? selectedHouse.price_per_night * stayNights + extraGuestCharge
-      : null;
+    return housePriceBreakdown == null
+      ? null
+      : housePriceBreakdown.subtotal + extraGuestCharge;
   })();
 
   const availability = useAvailabilityCheck(request);
@@ -275,7 +284,14 @@ function ReservationPlanner() {
     setRouteId('');
     setIsBeachHouseTransfer(false);
     setBeachHouseBookingReference('');
-    setCheckOutTime('11:00');
+    resetOutcome();
+  }
+
+  function selectStayMode(value: BeachHouseBookingMode) {
+    setStayMode(value);
+    setStartTime(
+      value === 'day_use' ? DAY_BOOKING_START : OVERNIGHT_BOOKING_START,
+    );
     resetOutcome();
   }
 
@@ -292,11 +308,9 @@ function ReservationPlanner() {
     if (isBoat(listing)) {
       setDuration(listing.min_booking_hours ?? 1);
     } else {
-      setStartTime(listing.check_in_time ?? '14:00');
-      setCheckOutTime(listing.check_out_time ?? '11:00');
-      if (stayMode === 'day_use') {
-        setDuration(listing.day_use_min_hours ?? 1);
-      }
+      setStartTime(
+        stayMode === 'day_use' ? DAY_BOOKING_START : OVERNIGHT_BOOKING_START,
+      );
     }
     resetOutcome();
     window.setTimeout(() => {
@@ -345,8 +359,8 @@ function ReservationPlanner() {
         resourceId: selectedAsset.id,
         startDate: date,
         endDate,
-        startTime: startTime || selectedHouse?.check_in_time || null,
-        endTime: checkOutTime || selectedHouse?.check_out_time || null,
+        startTime: OVERNIGHT_BOOKING_START,
+        endTime: OVERNIGHT_BOOKING_END,
       };
     }
 
@@ -364,7 +378,8 @@ function ReservationPlanner() {
       resourceId: selectedAsset.id,
       startDate: date,
       endDate: date,
-      startTime,
+      startTime:
+        experience === 'beach_house' ? DAY_BOOKING_START : startTime,
       endTime,
     } satisfies AvailabilityParams;
   }
@@ -402,7 +417,7 @@ function ReservationPlanner() {
       hours:
         experience === 'beach_house' && stayMode === 'overnight'
           ? null
-          : experience === 'boat_rental'
+          : experience === 'boat_rental' || experience === 'beach_house'
             ? null
             : durationUsed,
       rental_type: experience === 'boat_rental' ? 'outbound' : null,
@@ -533,9 +548,7 @@ function ReservationPlanner() {
                     ? 'Route pricing shown after selection'
                     : boat
                       ? `${currency(listing.price_per_hour)} / hour`
-                      : stayMode === 'overnight'
-                        ? `${currency(listing.price_per_night)} / night`
-                        : `${currency(listing.day_use_price_per_hour)} / hour`;
+                      : null;
 
                 return (
                   <Card
@@ -625,7 +638,20 @@ function ReservationPlanner() {
                         )}
                       </div>
                       <div className={styles.rate}>
-                        <strong>{rate}</strong>
+                        {boat ? (
+                          <strong>{rate}</strong>
+                        ) : (
+                          <div className={styles.houseRateList}>
+                            <span>
+                              <small>Day stay</small>
+                              <strong>{currency(listing.day_rate)}</strong>
+                            </span>
+                            <span>
+                              <small>Overnight</small>
+                              <strong>{currency(listing.overnight_rate)}</strong>
+                            </span>
+                          </div>
+                        )}
                         <Button
                           onClick={() => selectListing(listing)}
                           type="button"
@@ -691,31 +717,39 @@ function ReservationPlanner() {
                   )}
 
                   {experience === 'beach_house' && (
-                    <FormField className={styles.full} label="Stay type">
-                      <SelectInput
-                        value={stayMode}
-                        onChange={(event) => {
-                          const value = event.target
-                            .value as BeachHouseBookingMode;
-                          setStayMode(value);
-                          if (value === 'overnight') {
-                            setStartTime(selectedHouse?.check_in_time ?? '14:00');
-                            setCheckOutTime(
-                              selectedHouse?.check_out_time ?? '11:00',
-                            );
-                          }
-                          setDuration(
-                            value === 'day_use'
-                              ? selectedHouse?.day_use_min_hours ?? 1
-                              : 1,
-                          );
-                          resetOutcome();
-                        }}
+                    <div className={`${styles.full} ${styles.stayTypeGroup}`}>
+                      <p className={styles.controlLabel}>Choose your stay</p>
+                      <div
+                        aria-label="Stay type"
+                        className={styles.stayTypeOptions}
+                        role="group"
                       >
-                        <option value="overnight">Overnight stay</option>
-                        <option value="day_use">Day use</option>
-                      </SelectInput>
-                    </FormField>
+                        <button
+                          aria-pressed={stayMode === 'day_use'}
+                          className={
+                            stayMode === 'day_use' ? styles.stayTypeActive : ''
+                          }
+                          onClick={() => selectStayMode('day_use')}
+                          type="button"
+                        >
+                          <span>Day stay</span>
+                          <small>12:00 PM–8:00 PM</small>
+                        </button>
+                        <button
+                          aria-pressed={stayMode === 'overnight'}
+                          className={
+                            stayMode === 'overnight'
+                              ? styles.stayTypeActive
+                              : ''
+                          }
+                          onClick={() => selectStayMode('overnight')}
+                          type="button"
+                        >
+                          <span>Overnight stay</span>
+                          <small>8:00 PM–9:00 AM</small>
+                        </button>
+                      </div>
+                    </div>
                   )}
 
                   {experience === 'boat_rental' && (
@@ -817,7 +851,7 @@ function ReservationPlanner() {
                         value={endDate}
                       />
                     </FormField>
-                  ) : (
+                  ) : experience === 'beach_house' ? null : (
                     <FormField label="Start time">
                       <TextInput
                         onChange={(event) => {
@@ -831,36 +865,14 @@ function ReservationPlanner() {
                       </FormField>
                     )}
 
-                  {experience === 'beach_house' &&
-                    stayMode === 'overnight' && (
-                      <>
-                        <FormField label="Check-in time">
-                          <TextInput
-                            onChange={(event) => {
-                              setStartTime(event.target.value);
-                              resetOutcome();
-                            }}
-                            required
-                            type="time"
-                            value={startTime}
-                          />
-                        </FormField>
-                        <FormField label="Checkout time">
-                          <TextInput
-                            onChange={(event) => {
-                              setCheckOutTime(event.target.value);
-                              resetOutcome();
-                            }}
-                            required
-                            type="time"
-                            value={checkOutTime}
-                          />
-                        </FormField>
-                      </>
-                    )}
-
-
-                  <FormField label="Total guests">
+                  <FormField
+                    className={
+                      experience === 'beach_house' && stayMode === 'overnight'
+                        ? styles.full
+                        : undefined
+                    }
+                    label="Total guests"
+                  >
                     <TextInput
                       max={
                         experience === 'beach_house'
@@ -878,9 +890,7 @@ function ReservationPlanner() {
                     />
                   </FormField>
 
-                  {experience !== 'boat_rental' &&
-                    (experience !== 'beach_house' ||
-                      stayMode === 'day_use') && (
+                  {experience === 'boat_cruise' && (
                       <FormField label="Hours">
                         <TextInput
                           max={maximumDuration}
@@ -896,35 +906,92 @@ function ReservationPlanner() {
                       </FormField>
                     )}
 
-                  <div className={styles.price}>
-                    <span>Estimated total</span>
-                    <strong>{currency(estimatedTotal)}</strong>
-                    {experience === 'beach_house' &&
-                      stayMode === 'overnight' &&
-                      stayNights > 0 && <small>{stayNights} night stay</small>}
-                    {experience === 'beach_house' &&
-                      stayMode === 'overnight' && (
-                        <small>
-                          Check-in: {startTime}
-                          {' · '}
-                          Checkout: {checkOutTime}
-                        </small>
+                  {experience === 'beach_house' ? (
+                    <div className={`${styles.full} ${styles.priceSummary}`}>
+                      <div className={styles.priceSummaryHeader}>
+                        <span>Stay total</span>
+                        <strong>{currency(estimatedTotal)}</strong>
+                      </div>
+                      {housePriceBreakdown && selectedHouse && (
+                        <div className={styles.priceLines}>
+                          {housePriceBreakdown.overnightBlocks > 0 && (
+                            <div>
+                              <span>
+                                {housePriceBreakdown.overnightBlocks} overnight{' '}
+                                block
+                                {housePriceBreakdown.overnightBlocks === 1
+                                  ? ''
+                                  : 's'}
+                              </span>
+                              <strong>
+                                {currency(
+                                  housePriceBreakdown.overnightBlocks *
+                                    (selectedHouse.overnight_rate ?? 0),
+                                )}
+                              </strong>
+                            </div>
+                          )}
+                          {housePriceBreakdown.dayBlocks > 0 && (
+                            <div>
+                              <span>
+                                {housePriceBreakdown.dayBlocks} daytime block
+                                {housePriceBreakdown.dayBlocks === 1 ? '' : 's'}
+                              </span>
+                              <strong>
+                                {currency(
+                                  housePriceBreakdown.dayBlocks *
+                                    (selectedHouse.day_rate ?? 0),
+                                )}
+                              </strong>
+                            </div>
+                          )}
+                          {extraGuestCharge > 0 && (
+                            <div>
+                              <span>
+                                {extraGuestCount} extra guest
+                                {extraGuestCount === 1 ? '' : 's'}
+                              </span>
+                              <strong>{currency(extraGuestCharge)}</strong>
+                            </div>
+                          )}
+                        </div>
                       )}
-                    {experience === 'beach_house' &&
-                      selectedHouse?.max_guests != null && (
-                        <small>
-                          {selectedHouse.max_guests} guests included
-                          {selectedHouse.extra_guest_fee_per_head
-                            ? ` · ${currency(selectedHouse.extra_guest_fee_per_head)} per extra guest`
-                            : ''}
-                          {extraGuestCount > 0
-                            ? ` · ${extraGuestCount} extra guest${extraGuestCount === 1 ? '' : 's'}`
-                            : ''}
-                        </small>
-                      )}
-                  </div>
+                      <div className={styles.staySummaryFooter}>
+                        <span>
+                          {stayMode === 'day_use'
+                            ? 'Day stay · 12:00 PM–8:00 PM'
+                            : stayNights > 0
+                              ? `${stayNights}-night stay · 8:00 PM arrival–9:00 AM departure`
+                              : 'Select check-in and check-out dates'}
+                        </span>
+                        {selectedHouse?.max_guests != null && (
+                          <small>
+                            Up to {selectedHouse.max_guests} guests included
+                            {selectedHouse.extra_guest_fee_per_head
+                              ? ` · ${currency(selectedHouse.extra_guest_fee_per_head)} per extra guest`
+                              : ''}
+                          </small>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className={styles.price}>
+                      <span>Estimated total</span>
+                      <strong>{currency(estimatedTotal)}</strong>
+                    </div>
+                  )}
 
-                  <Button className={styles.check} type="submit">
+                  <Button
+                    className={styles.check}
+                    disabled={
+                      estimatedTotal == null ||
+                      !date ||
+                      (experience === 'beach_house' &&
+                        stayMode === 'overnight' &&
+                        stayNights < 1)
+                    }
+                    type="submit"
+                  >
                     Check availability
                   </Button>
                 </form>

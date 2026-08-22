@@ -2,6 +2,10 @@ import { createHash } from 'node:crypto';
 import type { CreateBookingInput } from './apiBooking';
 import { getSupabaseServerClient } from './supabaseServer';
 import { isWithinOnlineBoatBookingHours } from '@/utils/boatBookingHours';
+import {
+  BEACH_HOUSE_WINDOWS,
+  fixedBeachHousePrice,
+} from '@/utils/beachHousePricing';
 
 const PAYSTACK_BASE_URL = 'https://api.paystack.co';
 const DEFAULT_CURRENCY = 'NGN';
@@ -62,14 +66,10 @@ type BoatQuoteRecord = {
 
 type BeachHouseQuoteRecord = {
   id: string;
-  check_in_time: string | null;
-  check_out_time: string | null;
-  day_use_max_hours: number | null;
-  day_use_min_hours: number | null;
-  day_use_price_per_hour: number | null;
+  day_rate: number | null;
   extra_guest_fee_per_head: number | null;
   max_guests: number | null;
-  price_per_night: number | null;
+  overnight_rate: number | null;
 };
 
 type RouteQuoteRecord = {
@@ -494,7 +494,7 @@ async function quoteBooking(input: CreateBookingInput): Promise<BookingQuote> {
   const { data, error } = await supabase
     .from('beach_houses')
     .select(
-      'id, check_in_time, check_out_time, day_use_max_hours, day_use_min_hours, day_use_price_per_hour, extra_guest_fee_per_head, max_guests, price_per_night',
+      'id, day_rate, extra_guest_fee_per_head, max_guests, overnight_rate',
     )
     .eq('id', input.beach_house_id)
     .eq('is_active', true)
@@ -510,18 +510,10 @@ async function quoteBooking(input: CreateBookingInput): Promise<BookingQuote> {
     extraGuestCount * Number(house.extra_guest_fee_per_head ?? 0);
 
   if (input.beach_house_booking_mode === 'day_use') {
-    const hours = Number(input.hours ?? 0);
-
-    if (
-      !input.start_time ||
-      !house.day_use_price_per_hour ||
-      hours < (house.day_use_min_hours ?? 1) ||
-      (house.day_use_max_hours != null && hours > house.day_use_max_hours)
-    ) {
-      throw new Error('Please choose valid day-use details.');
+    if (!house.day_rate) {
+      throw new Error('Day pricing is not configured for this residence.');
     }
 
-    const endTime = addHours(input.start_time, hours);
     const { data: available, error: availabilityError } = await supabase.rpc(
       'check_public_availability',
       {
@@ -529,8 +521,8 @@ async function quoteBooking(input: CreateBookingInput): Promise<BookingQuote> {
         p_resource_id: house.id,
         p_start_date: input.start_date,
         p_end_date: input.start_date,
-        p_start_time: input.start_time,
-        p_end_time: endTime,
+        p_start_time: BEACH_HOUSE_WINDOWS.day_use.start,
+        p_end_time: BEACH_HOUSE_WINDOWS.day_use.end,
       },
     );
 
@@ -541,13 +533,21 @@ async function quoteBooking(input: CreateBookingInput): Promise<BookingQuote> {
 
     return {
       currency: DEFAULT_CURRENCY,
-      totalAmount: Number(house.day_use_price_per_hour) * hours + extraGuestCharge,
+      totalAmount: Number(house.day_rate) + extraGuestCharge,
     };
   }
 
   const nights = nightsBetween(input.start_date, input.end_date);
+  const stayPrice = fixedBeachHousePrice(
+    'overnight',
+    {
+      dayRate: house.day_rate,
+      overnightRate: house.overnight_rate,
+    },
+    nights,
+  );
 
-  if (!house.price_per_night || nights < 1) {
+  if (stayPrice == null) {
     throw new Error('An overnight stay needs valid dates and pricing.');
   }
 
@@ -558,8 +558,8 @@ async function quoteBooking(input: CreateBookingInput): Promise<BookingQuote> {
       p_resource_id: house.id,
       p_start_date: input.start_date,
       p_end_date: input.end_date,
-      p_start_time: input.start_time ?? house.check_in_time,
-      p_end_time: input.end_time ?? house.check_out_time,
+      p_start_time: BEACH_HOUSE_WINDOWS.overnight.start,
+      p_end_time: BEACH_HOUSE_WINDOWS.overnight.end,
     },
   );
 
@@ -570,7 +570,7 @@ async function quoteBooking(input: CreateBookingInput): Promise<BookingQuote> {
 
   return {
     currency: DEFAULT_CURRENCY,
-    totalAmount: Number(house.price_per_night) * nights + extraGuestCharge,
+    totalAmount: stayPrice + extraGuestCharge,
   };
 }
 
@@ -849,12 +849,27 @@ export async function verifyAndConfirmPayment(
           p_start_date: input.start_date,
           p_start_time: input.start_time ?? null,
         })
-      : await supabase.rpc('confirm_public_booking_payment', {
+      : input.booking_type === 'beach_house'
+        ? await supabase.rpc('confirm_public_beach_house_payment', {
+            p_asset_id: input.beach_house_id,
+            p_booking_mode: input.beach_house_booking_mode ?? 'overnight',
+            p_currency: quotedCurrency,
+            p_customer_email: input.customer_email,
+            p_customer_name: input.customer_name,
+            p_customer_phone: input.customer_phone ?? '',
+            p_end_date: input.end_date,
+            p_expected_total: quotedAmount,
+            p_guest_count: input.guest_count ?? 1,
+            p_notes: input.notes ?? null,
+            p_payment_reference: normalizedReference,
+            p_start_date: input.start_date,
+          })
+        : await supabase.rpc('confirm_public_booking_payment', {
           ...publicBookingRpcPayload(input),
           p_currency: quotedCurrency,
           p_expected_total: quotedAmount,
           p_payment_reference: normalizedReference,
-        });
+          });
   const { data: created, error: createError } = confirmation;
 
   if (createError || !created) {

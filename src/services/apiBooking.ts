@@ -137,6 +137,26 @@ export async function createBooking(
     return data as BookingConfirmation;
   }
 
+  if (input.booking_type === 'beach_house') {
+    const { data, error } = await getSupabaseClient().rpc(
+      'submit_public_beach_house_request',
+      {
+        p_asset_id: input.beach_house_id,
+        p_booking_mode: input.beach_house_booking_mode ?? 'overnight',
+        p_customer_name: input.customer_name,
+        p_customer_email: input.customer_email,
+        p_customer_phone: input.customer_phone ?? '',
+        p_guest_count: input.guest_count ?? 1,
+        p_start_date: input.start_date,
+        p_end_date: input.end_date,
+        p_notes: input.notes ?? null,
+      },
+    );
+
+    if (error) throw new Error(error.message);
+    return data as BookingConfirmation;
+  }
+
   const payload = {
     p_booking_type: input.booking_type,
     p_asset_id: input.boat_id ?? input.beach_house_id,
