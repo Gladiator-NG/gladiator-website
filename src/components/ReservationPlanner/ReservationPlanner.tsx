@@ -34,6 +34,7 @@ import {
   beachHousePriceBreakdown,
 } from '@/utils/beachHousePricing';
 import { formatBookingTime } from '@/utils/boatBookingHours';
+import { calculateVatBreakdown } from '@/utils/vat';
 import styles from './reservationPlanner.module.css';
 
 type Experience = BookingType;
@@ -238,7 +239,7 @@ function ReservationPlanner() {
         )
       : null;
 
-  const estimatedTotal = (() => {
+  const estimatedSubtotal = (() => {
     if (experience === 'boat_cruise') {
       return selectedBoat?.price_per_hour
         ? selectedBoat.price_per_hour * durationUsed
@@ -253,6 +254,11 @@ function ReservationPlanner() {
       ? null
       : housePriceBreakdown.subtotal + extraGuestCharge;
   })();
+  const vatBreakdown =
+    estimatedSubtotal == null
+      ? null
+      : calculateVatBreakdown(estimatedSubtotal);
+  const estimatedTotal = vatBreakdown?.totalAmount ?? null;
 
   const availability = useAvailabilityCheck(request);
 
@@ -909,7 +915,7 @@ function ReservationPlanner() {
                   {experience === 'beach_house' ? (
                     <div className={`${styles.full} ${styles.priceSummary}`}>
                       <div className={styles.priceSummaryHeader}>
-                        <span>Stay total</span>
+                        <span>Total payable</span>
                         <strong>{currency(estimatedTotal)}</strong>
                       </div>
                       {housePriceBreakdown && selectedHouse && (
@@ -954,6 +960,18 @@ function ReservationPlanner() {
                               <strong>{currency(extraGuestCharge)}</strong>
                             </div>
                           )}
+                          {vatBreakdown && (
+                            <>
+                              <div className={styles.subtotalLine}>
+                                <span>Subtotal</span>
+                                <strong>{currency(vatBreakdown.subtotal)}</strong>
+                              </div>
+                              <div className={styles.vatLine}>
+                                <span>VAT (7.5%)</span>
+                                <strong>{currency(vatBreakdown.vatAmount)}</strong>
+                              </div>
+                            </>
+                          )}
                         </div>
                       )}
                       <div className={styles.staySummaryFooter}>
@@ -972,12 +990,30 @@ function ReservationPlanner() {
                               : ''}
                           </small>
                         )}
+                        <small>VAT is included in the total payable.</small>
                       </div>
                     </div>
                   ) : (
-                    <div className={styles.price}>
-                      <span>Estimated total</span>
-                      <strong>{currency(estimatedTotal)}</strong>
+                    <div className={`${styles.full} ${styles.priceSummary}`}>
+                      <div className={styles.priceSummaryHeader}>
+                        <span>Total payable</span>
+                        <strong>{currency(estimatedTotal)}</strong>
+                      </div>
+                      {vatBreakdown && (
+                        <div className={styles.priceLines}>
+                          <div>
+                            <span>Booking subtotal</span>
+                            <strong>{currency(vatBreakdown.subtotal)}</strong>
+                          </div>
+                          <div className={styles.vatLine}>
+                            <span>VAT (7.5%)</span>
+                            <strong>{currency(vatBreakdown.vatAmount)}</strong>
+                          </div>
+                        </div>
+                      )}
+                      <div className={styles.staySummaryFooter}>
+                        <small>VAT is included in the total payable.</small>
+                      </div>
                     </div>
                   )}
 
@@ -1221,6 +1257,22 @@ function ReservationPlanner() {
             </div>
 
             <form className={styles.bookingForm} onSubmit={submitBooking}>
+              {vatBreakdown && (
+                <div className={styles.paymentSummary}>
+                  <div>
+                    <span>Booking subtotal</span>
+                    <strong>{currency(vatBreakdown.subtotal)}</strong>
+                  </div>
+                  <div>
+                    <span>VAT (7.5%)</span>
+                    <strong>{currency(vatBreakdown.vatAmount)}</strong>
+                  </div>
+                  <div className={styles.paymentTotal}>
+                    <span>Total payable</span>
+                    <strong>{currency(vatBreakdown.totalAmount)}</strong>
+                  </div>
+                </div>
+              )}
               <FormField label="Full name">
                 <TextInput
                   onChange={(event) => setCustomerName(event.target.value)}

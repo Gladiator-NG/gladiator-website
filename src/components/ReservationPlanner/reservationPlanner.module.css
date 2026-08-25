@@ -527,6 +527,17 @@
   white-space: nowrap;
 }
 
+.priceLines .subtotalLine {
+  border-top: 1px dashed rgba(30, 30, 30, 0.16);
+  margin-top: 0.3rem;
+  padding-top: 1.2rem;
+}
+
+.priceLines .vatLine span {
+  color: var(--color-ocean-blue);
+  font-weight: 800;
+}
+
 .staySummaryFooter {
   background: rgba(255, 255, 255, 0.54);
   border-top: 1px solid rgba(30, 30, 30, 0.07);
@@ -726,6 +737,42 @@
   flex-direction: column;
   gap: var(--space-3);
   padding: var(--space-5);
+}
+
+.paymentSummary {
+  background: linear-gradient(145deg, #f1f6fa, #f8f9fb);
+  border: 1px solid rgba(47, 140, 202, 0.18);
+  border-radius: 1.4rem;
+  display: grid;
+  gap: 1rem;
+  margin-bottom: var(--space-2);
+  padding: 1.5rem 1.6rem;
+}
+
+.paymentSummary > div {
+  align-items: baseline;
+  color: var(--color-ink-muted);
+  display: flex;
+  font-size: 1.2rem;
+  gap: var(--space-3);
+  justify-content: space-between;
+}
+
+.paymentSummary strong {
+  color: var(--color-text);
+  white-space: nowrap;
+}
+
+.paymentSummary .paymentTotal {
+  border-top: 1px solid rgba(30, 30, 30, 0.1);
+  color: var(--color-text);
+  font-size: 1.35rem;
+  font-weight: 800;
+  padding-top: 1.1rem;
+}
+
+.paymentTotal strong {
+  font-size: 1.6rem;
 }
 
 .galleryDialog {

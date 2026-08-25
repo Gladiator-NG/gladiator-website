@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import type { CreateBookingInput } from './apiBooking';
 import { getSupabaseServerClient } from './supabaseServer';
 import { isWithinOnlineBoatBookingHours } from '@/utils/boatBookingHours';
+import { calculateVatBreakdown } from '@/utils/vat';
 import {
   BEACH_HOUSE_WINDOWS,
   fixedBeachHousePrice,
@@ -575,7 +576,11 @@ async function quoteBooking(input: CreateBookingInput): Promise<BookingQuote> {
 }
 
 export async function initializeBookingPayment(input: CreateBookingInput) {
-  const quote = await quoteBooking(input);
+  const baseQuote = await quoteBooking(input);
+  const quote = {
+    ...baseQuote,
+    totalAmount: calculateVatBreakdown(baseQuote.totalAmount).totalAmount,
+  };
   const amount = toSubunit(quote.totalAmount);
 
   if (amount <= 0) {
