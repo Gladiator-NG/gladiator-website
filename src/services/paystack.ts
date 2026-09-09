@@ -1,4 +1,8 @@
-import { hasMinimumBookingNotice, BOOKING_NOTICE_MESSAGE } from '@/utils/bookingNotice';
+import {
+  BEACH_HOUSE_NOTICE_MESSAGE,
+  BOOKING_NOTICE_MESSAGE,
+  hasMinimumBookingNotice,
+} from '@/utils/bookingNotice';
 import { createHash } from 'node:crypto';
 import type { CreateBookingInput } from './apiBooking';
 import { getSupabaseServerClient } from './supabaseServer';
@@ -580,8 +584,11 @@ export async function initializeBookingPayment(input: CreateBookingInput) {
   const startTime = input.booking_type === 'beach_house'
     ? BEACH_HOUSE_WINDOWS[input.beach_house_booking_mode === 'day_use' ? 'day_use' : 'overnight'].start
     : input.start_time;
-  if (!hasMinimumBookingNotice(input.start_date, startTime)) {
-    throw new Error(BOOKING_NOTICE_MESSAGE);
+  const isBeachHouse = input.booking_type === 'beach_house';
+  if (!hasMinimumBookingNotice(input.start_date, startTime, isBeachHouse ? 24 : 2)) {
+    throw new Error(
+      isBeachHouse ? BEACH_HOUSE_NOTICE_MESSAGE : BOOKING_NOTICE_MESSAGE,
+    );
   }
   const baseQuote = await quoteBooking(input);
   const quote = {

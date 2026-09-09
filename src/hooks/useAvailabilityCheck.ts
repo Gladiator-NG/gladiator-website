@@ -12,7 +12,7 @@ import { isWithinOnlineBoatBookingHours } from '@/utils/boatBookingHours';
 import { hasMinimumBookingNotice } from '@/utils/bookingNotice';
 
 export type AvailabilityState =
-  | { status: 'too_soon' }
+  | { status: 'too_soon'; beachHouse: boolean; whatsappNumber: string }
   | { status: 'idle' }
   | { status: 'checking' }
   | { status: 'available' }
@@ -66,10 +66,19 @@ export function useAvailabilityCheck(
         };
   }, [params, settings]);
 
+  const noticeViolation = Boolean(
+    params &&
+      !hasMinimumBookingNotice(
+        params.startDate,
+        params.startTime,
+        params.resourceType === 'beach_house' ? 24 : 2,
+      ),
+  );
+
   const { data, isFetching, isError } = useQuery({
     queryKey: ['availability', params],
     queryFn: () => checkAvailability(params!),
-    enabled: enabled && !curfewViolation,
+    enabled: enabled && !curfewViolation && !noticeViolation,
     staleTime: 0,
     refetchInterval: 15_000,
     gcTime: 2 * 60_000,
@@ -77,7 +86,13 @@ export function useAvailabilityCheck(
   });
 
   if (!enabled) return { status: 'idle' };
-  if (params && !hasMinimumBookingNotice(params.startDate, params.startTime)) return { status: 'too_soon' };
+  if (params && noticeViolation) {
+    return {
+      status: 'too_soon',
+      beachHouse: params.resourceType === 'beach_house',
+      whatsappNumber: settings?.booking_whatsapp_number ?? '2349165063000',
+    };
+  }
   if (curfewViolation) return { status: 'curfew', ...curfewViolation };
   if (isFetching) return { status: 'checking' };
   if (isError) return { status: 'error' };

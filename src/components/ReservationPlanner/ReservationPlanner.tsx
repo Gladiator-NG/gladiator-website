@@ -1034,7 +1034,25 @@ function ReservationPlanner() {
 
                 <div className={styles.result} aria-live="polite">
                   {availability.status === 'too_soon' && (
-                    <p role="alert">Bookings require at least 2 hours’ notice. Please choose a later start time (Lagos time).</p>
+                    <div className={styles.afterHours} role="alert">
+                      <p>
+                        {availability.beachHouse
+                          ? 'Beach house bookings require at least 24 hours’ notice. For same-day bookings, please contact the Gladiator team.'
+                          : 'Boat bookings require at least 2 hours’ notice. Please choose a later start time (Lagos time).'}
+                      </p>
+                      {availability.beachHouse && (
+                        <a
+                          href={whatsappBookingUrl(
+                            availability.whatsappNumber,
+                            `Hi Gladiator, I'd like help making a same-day booking for ${selectedAsset.name} on ${date}.`,
+                          )}
+                          rel="noreferrer"
+                          target="_blank"
+                        >
+                          Contact us on WhatsApp
+                        </a>
+                      )}
+                    </div>
                   )}
                   {availability.status === 'checking' && (
                     <p>Checking your dates...</p>
