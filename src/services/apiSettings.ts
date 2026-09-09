@@ -11,7 +11,7 @@ const DEFAULTS: AppSettings = {
   boat_curfew_time: null,
   boat_curfew_enabled: true,
   boat_curfew_reopen_time: '08:00',
-  booking_whatsapp_number: '2348000000000',
+  booking_whatsapp_number: '2349165063000',
 };
 
 export async function fetchSettings(): Promise<AppSettings> {

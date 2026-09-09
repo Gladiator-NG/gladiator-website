@@ -1033,6 +1033,9 @@ function ReservationPlanner() {
                 </form>
 
                 <div className={styles.result} aria-live="polite">
+                  {availability.status === 'too_soon' && (
+                    <p role="alert">Bookings require at least 2 hours’ notice. Please choose a later start time (Lagos time).</p>
+                  )}
                   {availability.status === 'checking' && (
                     <p>Checking your dates...</p>
                   )}

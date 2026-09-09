@@ -9,7 +9,10 @@ import {
 import { fetchSettings } from '@/services/apiSettings';
 import { isWithinOnlineBoatBookingHours } from '@/utils/boatBookingHours';
 
+import { hasMinimumBookingNotice } from '@/utils/bookingNotice';
+
 export type AvailabilityState =
+  | { status: 'too_soon' }
   | { status: 'idle' }
   | { status: 'checking' }
   | { status: 'available' }
@@ -67,12 +70,14 @@ export function useAvailabilityCheck(
     queryKey: ['availability', params],
     queryFn: () => checkAvailability(params!),
     enabled: enabled && !curfewViolation,
-    staleTime: 60_000,
+    staleTime: 0,
+    refetchInterval: 15_000,
     gcTime: 2 * 60_000,
     retry: false,
   });
 
   if (!enabled) return { status: 'idle' };
+  if (params && !hasMinimumBookingNotice(params.startDate, params.startTime)) return { status: 'too_soon' };
   if (curfewViolation) return { status: 'curfew', ...curfewViolation };
   if (isFetching) return { status: 'checking' };
   if (isError) return { status: 'error' };

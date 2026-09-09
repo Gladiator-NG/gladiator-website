@@ -21,7 +21,7 @@ const TikTokIcon = () => (
 );
 
 function Footer() {
-  const whatsappUrl = process.env.NEXT_PUBLIC_SUPPORT_WHATSAPP_URL;
+  const whatsappUrl = 'https://wa.me/2349165063000';
   const supportEmail =
     process.env.NEXT_PUBLIC_SUPPORT_EMAIL || 'bookings@gladiatorleisures.com';
 
