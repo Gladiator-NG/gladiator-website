@@ -60,6 +60,59 @@
   gap: var(--space-3);
 }
 
+.contactMethod {
+  align-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 12px;
+  display: flex;
+  gap: var(--space-3);
+  padding: 12px 14px;
+  transition: background-color 180ms ease, border-color 180ms ease;
+}
+
+.contactMethod:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+.contactMethod > span:last-child {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.contactMethod strong {
+  font-size: 1.4rem;
+  line-height: 1.2;
+}
+
+.contactMethod small {
+  color: rgba(255, 255, 255, 0.64);
+  font-size: 1.2rem;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.contactIcon {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 50%;
+  display: inline-flex;
+  flex: 0 0 40px;
+  height: 40px;
+  justify-content: center;
+}
+
+.contactIcon svg {
+  fill: none;
+  height: 21px;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.7;
+  width: 21px;
+}
+
 .contactLinks span {
   color: rgba(255, 255, 255, 0.62);
   line-height: 1.7;
