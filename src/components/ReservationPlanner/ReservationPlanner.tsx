@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import { type FormEvent, useMemo, useRef, useState } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, LayoutGroup, motion, useReducedMotion } from 'framer-motion';
 import { useAvailabilityCheck } from '@/hooks/useAvailabilityCheck';
 import { useBeachHouses } from '@/hooks/useBeachHouses';
 import { useBoats, useRentalBoats } from '@/hooks/useBoats';
@@ -15,7 +15,6 @@ import {
   Card,
   FormField,
   SelectInput,
-  TabNavigation,
   TextArea,
   TextInput,
 } from '@/components/ui';
@@ -46,12 +45,11 @@ const experienceLabels: Record<Experience, string> = {
   boat_rental: 'Boat transfers',
 };
 
-const experienceTabs = Object.entries(experienceLabels).map(
-  ([value, label]) => ({
-    label,
-    value: value as Experience,
-  }),
-);
+const experienceDetails: Record<Experience, { description: string; icon: string }> = {
+  boat_cruise: { description: 'Make the coast your own', icon: 'M3 15h18l-3 5H6l-3-5Zm4 0 2-5h7l3 5M12 10V4m0 0 5 4h-5M3 23c2-2 4 2 6 0s4 2 6 0 4 2 6 0' },
+  beach_house: { description: 'Stay a little closer to the sea', icon: 'm3 11 9-8 9 8M5 10v10h14V10M10 20v-7h4v7M2 24c2-2 4 2 6 0s4 2 6 0 4 2 6 0' },
+  boat_rental: { description: 'Your next stop, by water', icon: 'M3 7h16m-4-4 4 4-4 4M21 18H5m4-4-4 4 4 4' },
+};
 
 const { start: DAY_BOOKING_START, end: DAY_BOOKING_END } =
   BEACH_HOUSE_WINDOWS.day_use;
@@ -105,6 +103,7 @@ function whatsappBookingUrl(number: string, message: string) {
 }
 
 function ReservationPlanner() {
+  const reduceMotion = useReducedMotion();
   const [experience, setExperience] = useState<Experience>('boat_cruise');
   const [location, setLocation] = useState('');
   const [assetId, setAssetId] = useState('');
@@ -477,11 +476,56 @@ function ReservationPlanner() {
 
   return (
     <section className={styles.section} id="plan-charter">
-      <div className={`wrap ${styles.searchBar}`}>
-        <div>
-          <p className={styles.eyebrow}>Book Your Escape</p>
-          <h2>Find an available experience</h2>
-        </div>
+      <div className="wrap" id="listings">
+        <LayoutGroup id="experience-navigation">
+        <nav aria-label="Experience type" className={styles.experienceNav}>
+          {(Object.keys(experienceLabels) as Experience[]).map((value, index) => (
+            <motion.button
+              initial={false}
+              whileTap={reduceMotion ? undefined : { scale: 0.975 }}
+              transition={{ type: 'spring', stiffness: 420, damping: 30 }}
+              key={value}
+              type="button"
+              aria-pressed={experience === value}
+              className={`${styles.experienceOption} ${experience === value ? styles.experienceActive : ''}`}
+              onClick={() => switchExperience(value)}
+            >
+              {experience === value && (
+                <motion.span
+                  aria-hidden="true"
+                  className={styles.experienceBackdrop}
+                  layoutId={reduceMotion ? undefined : 'selected-experience'}
+                  transition={{ type: 'spring', stiffness: 340, damping: 34 }}
+                />
+              )}
+              <span className={styles.experienceIcon} aria-hidden="true">
+                <svg viewBox="0 0 26 28" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+                  <path d={experienceDetails[value].icon} />
+                </svg>
+              </span>
+              <span className={styles.experienceCopy}>
+                <span className={styles.experienceNumber} aria-hidden="true">0{index + 1} / Explore</span>
+                <strong>{experienceLabels[value]}</strong>
+                <span className={styles.experienceDescription}>{experienceDetails[value].description}</span>
+              </span>
+              <span className={styles.experienceArrow} aria-hidden="true">↗</span>
+            </motion.button>
+          ))}
+        </nav>
+        </LayoutGroup>
+
+        <div className={styles.marketplace}>
+          <div className={styles.catalog} key={experience}>
+            <div className={styles.resultsHeader}>
+              <h2>{experienceLabels[experience]}</h2>
+              <p>
+                {isLoading
+                  ? 'Loading collection...'
+                  : `${filteredAssets.length} available option${filteredAssets.length === 1 ? '' : 's'}`}
+              </p>
+            </div>
+
+            <div className={styles.locationFilter}>
         {experience !== 'boat_cruise' && (
           <FormField label={filterLabel}>
             <SelectInput
@@ -509,25 +553,6 @@ function ReservationPlanner() {
             </SelectInput>
           </FormField>
         )}
-      </div>
-
-      <div className="wrap" id="listings">
-        <TabNavigation
-          ariaLabel="Experience type"
-          onChange={switchExperience}
-          tabs={experienceTabs}
-          value={experience}
-        />
-
-        <div className={styles.marketplace}>
-          <div className={styles.catalog}>
-            <div className={styles.resultsHeader}>
-              <h2>{experienceLabels[experience]}</h2>
-              <p>
-                {isLoading
-                  ? 'Loading collection...'
-                  : `${filteredAssets.length} available option${filteredAssets.length === 1 ? '' : 's'}`}
-              </p>
             </div>
 
             {assetError && (

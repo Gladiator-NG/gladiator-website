@@ -1,39 +1,152 @@
 .section {
-  margin-top: -4.4rem;
+  padding-top: 3.2rem;
   padding-bottom: var(--space-10);
   position: relative;
   z-index: 2;
 }
 
-.searchBar {
-  align-items: end;
-  background: var(--color-paper);
-  border: 1px solid var(--color-border-soft);
-  border-radius: var(--radius-lg);
+.experienceNav {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1.2rem;
+  margin-bottom: 4.8rem;
+}
+
+.experienceOption {
+  align-items: center;
+  background: #fff;
+  border: 1px solid #d5dfe7;
+  border-radius: 1.8rem;
+  color: #18374a;
+  cursor: pointer;
   display: flex;
-  gap: var(--space-8);
-  justify-content: space-between;
-  margin-bottom: var(--space-8);
-  padding: 2.6rem 3.2rem;
+  gap: 1.8rem;
+  min-width: 0;
+  padding: 2.6rem 2.4rem;
+  position: relative;
+  text-align: left;
+  isolation: isolate;
+  transition: border-color 300ms ease, box-shadow 350ms ease, color 250ms ease;
 }
 
-.eyebrow {
-  color: var(--color-ocean-blue);
-  font-size: 1.1rem;
-  font-weight: 800;
-  letter-spacing: 0.2em;
-  margin-bottom: var(--space-2);
-  text-transform: uppercase;
+.experienceOption:hover {
+  border-color: #8aafc5;
+  box-shadow: 0 1rem 2.4rem #12324712;
+
 }
 
-.searchBar h2 {
-  color: var(--color-text);
-  font-size: clamp(2.4rem, 2.5vw, 3.6rem);
-  letter-spacing: -0.02em;
+.experienceOption:focus-visible {
+  outline: 3px solid var(--color-ocean-blue);
+  outline-offset: 4px;
 }
 
-.searchBar label {
-  flex: 0 1 310px;
+.experienceOption.experienceActive {
+  border-color: transparent;
+  box-shadow: 0 1.2rem 2.8rem #102d4926;
+  color: #fff;
+}
+
+.experienceBackdrop {
+  position: absolute;
+  inset: -1px;
+  z-index: -1;
+  border: 1px solid #234f65;
+  border-radius: inherit;
+  overflow: hidden;
+  background: linear-gradient(120deg, #0b2434, #17445a);
+  box-shadow: inset 0 1px 0 #ffffff20;
+  pointer-events: none;
+}
+
+.experienceBackdrop::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, transparent 25%, #ffffff14 48%, transparent 70%);
+  transform: translateX(-110%);
+  animation: experienceSheen 850ms 120ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.experienceIcon,
+.experienceIcon svg,
+.experienceArrow,
+.experienceNumber,
+.experienceDescription {
+  transition: color 250ms ease, background 300ms ease, border-color 300ms ease, transform 450ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .experienceOption:hover .experienceIcon { transform: translateY(-3px); }
+  .experienceOption:hover .experienceIcon svg { transform: rotate(-8deg); }
+  .experienceOption:hover .experienceArrow { transform: translate(3px, -3px); }
+}
+
+@keyframes experienceSheen {
+  to { transform: translateX(110%); }
+}
+
+@keyframes collectionReveal {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .experienceNav { animation: collectionReveal 700ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+  .catalog .resultsHeader,
+  .catalog .locationFilter,
+  .catalog .listing { animation: collectionReveal 500ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+  .catalog .listing:nth-child(1) { animation-delay: 50ms; }
+  .catalog .listing:nth-child(2) { animation-delay: 100ms; }
+  .catalog .listing:nth-child(n + 3) { animation-delay: 150ms; }
+}
+
+.experienceIcon {
+  align-items: center;
+  background: #edf3f7;
+  border: 1px solid #dbe6ed;
+  border-radius: 50%;
+  display: flex;
+  flex: 0 0 5.6rem;
+  height: 5.6rem;
+  justify-content: center;
+}
+
+.experienceIcon svg { width: 2.8rem; height: 3rem; }
+.experienceActive .experienceIcon { background: #ffffff0d; border-color: #ffffff26; color: #fdca0f; }
+.experienceCopy { display: grid; gap: 0.5rem; }
+.experienceNumber { color: #647d8c; font-size: 0.95rem; font-weight: 800; letter-spacing: 0.18em; text-transform: uppercase; }
+.experienceActive .experienceNumber { color: #fdca0f; }
+.experienceCopy strong { font-size: clamp(1.8rem, 1.7vw, 2.4rem); font-weight: 800; letter-spacing: -0.035em; line-height: 1.2; }
+.experienceDescription { color: #607484; font-size: 1.2rem; line-height: 1.5; }
+.experienceActive .experienceDescription { color: #bed0dc; }
+.experienceArrow { font-size: 2.4rem; margin-left: auto; }
+.experienceActive .experienceArrow { color: #fdca0f; }
+.locationFilter:has(label) { max-width: 34rem; margin-bottom: 2.4rem; }
+
+@media (max-width: 1100px) {
+  .experienceOption { gap: 1.2rem; padding: 2rem 1.6rem; }
+  .experienceIcon { flex-basis: 4.4rem; height: 4.4rem; }
+  .experienceArrow { display: none; }
+}
+
+@media (max-width: 760px) {
+  .experienceNav { gap: 0.7rem; margin-bottom: 3rem; }
+  .experienceOption { flex-direction: column; align-items: center; gap: 1rem; padding: 1.6rem 0.6rem; border-radius: 1.3rem; text-align: center; }
+  .experienceCopy strong { font-size: 1.45rem; letter-spacing: -0.02em; }
+  .experienceNumber, .experienceDescription { display: none; }
+  .experienceIcon { flex-basis: auto; width: 4.4rem; }
+  .resultsHeader { gap: 1rem; flex-wrap: wrap; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .experienceOption,
+  .experienceIcon,
+  .experienceIcon svg,
+  .experienceArrow,
+  .experienceNumber,
+  .experienceDescription { transition: none; }
+  .experienceBackdrop::after { animation: none; }
+  .experienceOption:hover { transform: none; }
 }
 
 .marketplace {
@@ -940,18 +1053,6 @@
   .section {
     margin-top: 0;
     padding-top: var(--space-5);
-  }
-
-  .searchBar {
-    align-items: stretch;
-    border-radius: var(--radius-md);
-    flex-direction: column;
-    gap: var(--space-5);
-    padding: var(--space-5);
-  }
-
-  .searchBar label {
-    flex-basis: auto;
   }
 
   .listings {
