@@ -124,6 +124,10 @@ function ReservationPlanner() {
   const [customerEmail, setCustomerEmail] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [notes, setNotes] = useState('');
+  const [discountCode, setDiscountCode] = useState('');
+  const [discountQuote, setDiscountQuote] = useState<{ key: string; discountAmount: number; subtotal: number; vatAmount: number; totalAmount: number } | null>(null);
+  const [discountError, setDiscountError] = useState('');
+  const [checkingDiscount, setCheckingDiscount] = useState(false);
   const [confirmationReference, setConfirmationReference] = useState('');
   const [submissionError, setSubmissionError] = useState('');
   const [isPaymentStarting, setIsPaymentStarting] = useState(false);
@@ -441,9 +445,33 @@ function ReservationPlanner() {
             : null,
       dropoff_location:
         experience === 'boat_rental' ? selectedRoute?.to_location?.name : null,
+      discount_code: discountCode.trim().toUpperCase() || undefined,
       total_amount: estimatedTotal,
       notes: notes.trim() || null,
     };
+  }
+
+  const discountKey = JSON.stringify([discountCode.trim().toUpperCase(), customerEmail.trim().toLowerCase(), experience, selectedAsset?.id, date, endDate, startTime, duration, guests, stayMode, routeId, pickupJettyId, estimatedTotal]);
+  const activeDiscount = discountQuote?.key === discountKey ? discountQuote : null;
+  const checkoutBreakdown = activeDiscount ?? vatBreakdown;
+
+  async function applyDiscount() {
+    const payload = bookingPayload();
+    if (!payload) return;
+    setCheckingDiscount(true);
+    setDiscountError('');
+    setDiscountQuote(null);
+    try {
+      const response = await fetch('/api/discounts/quote', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ booking: payload }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.message);
+      setDiscountQuote({ ...result, key: discountKey });
+    } catch (error) {
+      setDiscountError(error instanceof Error ? error.message : 'Could not validate code.');
+    } finally { setCheckingDiscount(false); }
   }
 
   async function submitBooking(event: FormEvent<HTMLFormElement>) {
@@ -462,7 +490,10 @@ function ReservationPlanner() {
     setSubmissionError('');
     setIsPaymentStarting(true);
     try {
-      const payment = await initializeBookingPayment(payload);
+      if (payload.discount_code && !activeDiscount) {
+        throw new Error('Please apply your discount code before continuing, or clear it to pay without a discount.');
+      }
+      const payment = await initializeBookingPayment({ ...payload, total_amount: activeDiscount?.totalAmount ?? payload.total_amount });
       window.location.assign(payment.authorizationUrl);
     } catch (error) {
       setIsPaymentStarting(false);
@@ -1290,7 +1321,7 @@ function ReservationPlanner() {
                     ? ` to ${bookingEndDate}`
                     : ''}
                   {' | '}
-                  {currency(estimatedTotal)}
+                  {currency(checkoutBreakdown?.totalAmount ?? estimatedTotal)}
                 </span>
               </div>
               <Button
@@ -1303,19 +1334,20 @@ function ReservationPlanner() {
             </div>
 
             <form className={styles.bookingForm} onSubmit={submitBooking}>
-              {vatBreakdown && (
+              {checkoutBreakdown && (
                 <div className={styles.paymentSummary}>
                   <div>
-                    <span>Booking subtotal</span>
-                    <strong>{currency(vatBreakdown.subtotal)}</strong>
+                    <span>{activeDiscount ? 'Subtotal after discount' : 'Booking subtotal'}</span>
+                    <strong>{currency(checkoutBreakdown.subtotal)}</strong>
                   </div>
+                  {activeDiscount && <div><span>Discount ({discountCode.toUpperCase()})</span><strong>−{currency(activeDiscount.discountAmount)}</strong></div>}
                   <div>
                     <span>VAT (7.5%)</span>
-                    <strong>{currency(vatBreakdown.vatAmount)}</strong>
+                    <strong>{currency(checkoutBreakdown.vatAmount)}</strong>
                   </div>
                   <div className={styles.paymentTotal}>
                     <span>Total payable</span>
-                    <strong>{currency(vatBreakdown.totalAmount)}</strong>
+                    <strong>{currency(checkoutBreakdown.totalAmount)}</strong>
                   </div>
                 </div>
               )}
@@ -1343,6 +1375,15 @@ function ReservationPlanner() {
                   value={customerPhone}
                 />
               </FormField>
+              <FormField label="Discount code (optional)">
+                <TextInput value={discountCode} maxLength={40} onChange={(event) => { setDiscountCode(event.target.value); setDiscountError(''); }} />
+              </FormField>
+              <Button type="button" variant="ghost" disabled={checkingDiscount || !discountCode.trim() || isPaymentStarting} onClick={applyDiscount}>
+                {checkingDiscount ? 'Checking code…' : 'Apply code'}
+              </Button>
+              {discountCode && <Button type="button" variant="ghost" onClick={() => { setDiscountCode(''); setDiscountQuote(null); setDiscountError(''); }}>Remove code</Button>}
+              {discountError && <p role="alert">{discountError}</p>}
+              {activeDiscount && <p role="status">Discount applied. Your total includes VAT.</p>}
               <FormField label="Occasion or requests">
                 <TextArea
                   onChange={(event) => setNotes(event.target.value)}

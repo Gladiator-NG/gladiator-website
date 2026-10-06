@@ -45,6 +45,7 @@ export interface Booking {
 }
 
 export interface CreateBookingInput {
+  discount_code?: string;
   booking_type: BookingType;
   boat_id?: string | null;
   beach_house_id?: string | null;

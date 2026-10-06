@@ -97,6 +97,7 @@ type BookingQuote = {
 };
 
 type PaymentAttempt = {
+  quoted_amount: number;
   authorization_url: string | null;
   booking_id: string | null;
   payment_reference: string;
@@ -206,6 +207,7 @@ function paymentVerificationUrl(reference: string) {
 
 function paymentRequestKey(input: CreateBookingInput, quote: BookingQuote) {
   const normalized = {
+    discount_code: input.discount_code?.trim().toUpperCase() || null,
     asset_id: input.boat_id ?? input.beach_house_id ?? null,
     beach_house_booking_mode: input.beach_house_booking_mode ?? null,
     booking_type: input.booking_type,
@@ -580,7 +582,18 @@ async function quoteBooking(input: CreateBookingInput): Promise<BookingQuote> {
   };
 }
 
+export async function quoteBookingDiscount(input: CreateBookingInput) {
+  const base = await quoteBooking(input);
+  const { data, error } = await getSupabaseServerClient().rpc('quote_discount', {
+    p_code: input.discount_code, p_subtotal: base.totalAmount,
+    p_booking_type: input.booking_type, p_email: input.customer_email,
+  });
+  if (error) throw new Error(error.message);
+  return data as { code: string; discountAmount: number; subtotal: number; vatAmount: number; totalAmount: number };
+}
+
 export async function initializeBookingPayment(input: CreateBookingInput) {
+  input = { ...input, discount_code: input.discount_code?.trim().toUpperCase() || undefined };
   const startTime = input.booking_type === 'beach_house'
     ? BEACH_HOUSE_WINDOWS[input.beach_house_booking_mode === 'day_use' ? 'day_use' : 'overnight'].start
     : input.start_time;
@@ -595,7 +608,7 @@ export async function initializeBookingPayment(input: CreateBookingInput) {
     ...baseQuote,
     totalAmount: calculateVatBreakdown(baseQuote.totalAmount).totalAmount,
   };
-  const amount = toSubunit(quote.totalAmount);
+  let amount = toSubunit(quote.totalAmount);
 
   if (amount <= 0) {
     throw new Error('This booking does not have a valid payable amount.');
@@ -606,7 +619,7 @@ export async function initializeBookingPayment(input: CreateBookingInput) {
   const { data: previousAttempt, error: previousAttemptError } = await supabase
     .from('payment_attempts')
     .select(
-      'authorization_url, booking_id, payment_reference, provider_status, status',
+      'quoted_amount, authorization_url, booking_id, payment_reference, provider_status, status',
     )
     .eq('request_key', requestKey)
     .neq('status', 'abandoned')
@@ -616,8 +629,11 @@ export async function initializeBookingPayment(input: CreateBookingInput) {
 
   if (previousAttemptError) throw new Error(previousAttemptError.message);
 
-  if (previousAttempt) {
+  if (previousAttempt && (!input.discount_code || previousAttempt.authorization_url || previousAttempt.status !== 'initialized')) {
     const attempt = previousAttempt as PaymentAttempt;
+    if (input.discount_code && Number(attempt.quoted_amount) !== input.total_amount) {
+      throw new Error('An existing checkout has a different discount total. Please contact our team before paying.');
+    }
     return {
       access_code: '',
       authorization_url:
@@ -628,7 +644,23 @@ export async function initializeBookingPayment(input: CreateBookingInput) {
     };
   }
 
-  const reference = paymentReference();
+  let reference = paymentReference();
+  if (input.discount_code) {
+    const { data: reservation, error } = await supabase.rpc('reserve_discount_checkout', {
+      p_reference: reference, p_request_key: requestKey, p_input: input,
+      p_subtotal: baseQuote.totalAmount,
+    });
+    if (error) throw new Error(error.message);
+    if (Number(reservation.quoted_amount) !== input.total_amount) {
+      throw new Error('The discount total changed. Please apply the code again before paying.');
+    }
+    reference = reservation.payment_reference;
+    quote.totalAmount = Number(reservation.quoted_amount);
+    amount = toSubunit(quote.totalAmount);
+    if (reservation.authorization_url || reservation.status !== 'initialized') {
+      return { access_code: '', reference, authorization_url: reservation.authorization_url || paymentVerificationUrl(reference) };
+    }
+  }
   const result = await paystackFetch<PaystackInitializeResponse>(
     '/transaction/initialize',
     {
@@ -655,7 +687,7 @@ export async function initializeBookingPayment(input: CreateBookingInput) {
     throw new Error(result.message || 'Could not initialize payment.');
   }
 
-  const { error: attemptError } = await supabase.from('payment_attempts').insert({
+  const attemptValues = {
     authorization_url: result.data.authorization_url,
     booking_payload: input,
     currency: quote.currency,
@@ -664,13 +696,16 @@ export async function initializeBookingPayment(input: CreateBookingInput) {
     quoted_amount: quote.totalAmount,
     request_key: requestKey,
     status: 'initialized',
-  });
+  };
+  const { error: attemptError } = input.discount_code
+    ? await supabase.from('payment_attempts').update({ authorization_url: result.data.authorization_url, provider_status: 'initialized' }).eq('payment_reference', reference).eq('status', 'initialized')
+    : await supabase.from('payment_attempts').insert(attemptValues);
 
   if (attemptError) {
     const { data: concurrentAttempt } = await supabase
       .from('payment_attempts')
       .select(
-        'authorization_url, booking_id, payment_reference, provider_status, status',
+        'quoted_amount, authorization_url, booking_id, payment_reference, provider_status, status',
       )
       .eq('request_key', requestKey)
       .eq('status', 'initialized')
@@ -754,16 +789,19 @@ export async function verifyAndConfirmPayment(
         { onConflict: 'payment_reference' },
       );
     } else {
+      const { data: stored, error: storedError } = await supabase.from('payment_attempts')
+        .select('discount_code_id').eq('payment_reference', normalizedReference).maybeSingle();
       await supabase
         .from('payment_attempts')
         .update({
           error_message: null,
           provider_status: result.data.status,
           status:
-            result.data.status === 'abandoned' ? 'abandoned' : 'initialized',
+            result.data.status === 'abandoned' && !storedError && stored && !stored.discount_code_id ? 'abandoned' : 'initialized',
           updated_at: new Date().toISOString(),
         })
-        .eq('payment_reference', normalizedReference);
+        .eq('payment_reference', normalizedReference)
+        .in('status', ['initialized', 'abandoned']);
     }
 
     return {
@@ -777,9 +815,10 @@ export async function verifyAndConfirmPayment(
   }
 
   const supabase = getSupabaseServerClient();
-  const requestKey = paymentRequestKey(input, {
-    currency: quotedCurrency,
-    totalAmount: quotedAmount,
+  const { data: storedAttempt } = await supabase.from('payment_attempts')
+    .select('request_key').eq('payment_reference', normalizedReference).maybeSingle();
+  const requestKey = storedAttempt?.request_key ?? paymentRequestKey(input, {
+    currency: quotedCurrency, totalAmount: quotedAmount,
   });
   const { error: paidAttemptError } = await supabase
     .from('payment_attempts')
